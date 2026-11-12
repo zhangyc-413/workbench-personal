@@ -28,6 +28,7 @@ export function sourceSyncPanel({api:request,getData,getProject,refreshState=()=
   async function act(fn,b){if(action)return;action=true;if(b)b.disabled=true;const e=epoch;try{await fn();if(e===epoch){await load(true);await refreshState();}}catch(error){if(e===epoch){const note=el('p','workspace-note',error.message);note.setAttribute('role','alert');panel.append(note);}}finally{action=false;if(b?.isConnected)b.disabled=false;}}
   function draw(){
     panel.replaceChildren();if(!state)return;
+    if(state.external){panel.append(el('h3','',t('Project file sync')));drawExternal(panel,state.external);panel.append(button('Refresh',()=>load(true)));return;}
     const h=el('div','source-sync-heading');h.append(el('h3','',t('Project file sync')),setActionIcon(button('Configure project file sync',configure),'settings',t('Configure project file sync')));panel.append(h,el('p','workspace-note',t(state.config.enabled?'Enabled':'Disabled')),button('Sync records',auditRecords));
     panel.append(el('p','workspace-note',t('Saved code, documents and resources; Git delivery remains separate.')),el('p','workspace-note',t(state.config.contentMode==='source-and-outputs'?'Source and outputs':'Source only')));
     if(state.config.detection==='metadata')panel.append(el('p','workspace-note',t('Simple mode: metadata and completion receipts; equal time and size can miss content changes.')));
@@ -103,8 +104,18 @@ export function sourceSyncPanel({api:request,getData,getProject,refreshState=()=
     }
     body.append(button('Verify contents once',b=>submit('verify',b)),button('Initialize from selected source',b=>submit('overwrite',b)));await page();
   }
+  function drawExternal(body,external){
+    body.append(el('p','',external.indicator.title),el('p','workspace-note',t('Automatic two-way sync is managed by Syncthing. Workbench only reads its status.')));
+    if(Number.isFinite(external.localFiles))body.append(el('p','workspace-note',t('Files on this device: {count}',{count:external.localFiles})));
+    if(Number.isFinite(external.pendingItems))body.append(el('p','workspace-note',t('Pending items across devices: {count}',{count:external.pendingItems})));
+    if(external.checkedAt)body.append(el('p','workspace-note',t('Last checked: {time}',{time:new Date(external.checkedAt).toLocaleString()})));
+    body.append(el('p','workspace-note',t('Only included project files are synchronized. Excluded folders and credentials are not included.')),
+      el('p','workspace-note',t('Sync continues with the page closed. A sleeping or disconnected computer catches up after reconnecting.')),
+      el('p','workspace-note',t('Built-in sync stays off to avoid two services changing the same files.')));
+  }
   async function configure(){
     await load(true);if(!state)return;const ctx=modal('Configure project file sync'),{body,note,id,v}=ctx,config=state.config;let preview=null,pending=false;
+    if(state.external){drawExternal(body,state.external);body.append(button('Refresh',configure));return;}
     body.append(el('p','workspace-note',t('Choose bound repositories and at least two devices. Preview scans without changing files. Disable sync before changing its scope.')));
     if(config.enabled){body.append(button('Disable project file sync',async b=>{b.disabled=true;try{await api(endpoint(id)+'/config',{enabled:false,revision:config.revision},'PUT');if(valid(id,v)){dialog.close();await load(true);}}catch(e){if(valid(id,v)){note.textContent=e.message;b.disabled=false;}}}));return;}
     const contentLabel=el('label','',t('Sync content')),content=el('select');content.setAttribute('aria-label',t('Sync content'));

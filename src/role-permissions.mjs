@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+import { realpathSync } from 'node:fs';
 
 /** Three per-role scopes; a missing value keeps the role's legacy behavior unchanged. */
 export const PERMISSION_SCOPES=['project','device','device-approval'];
@@ -26,12 +27,25 @@ export function permissionScopeIssue(worker,runtime,scope) {
   return offered.includes(scope)?null:'scope_unsupported';
 }
 
+/** Minimal system reads include resolv.conf, but not necessarily its symlink target (for example systemd-resolved's
+ *  file under /run). Allow only that resolved file; granting the containing runtime directory would expose other data. */
+export function resolverConfigReadPaths({platform=process.platform,resolvePath=realpathSync}={}) {
+  if(platform!=='linux')return [];
+  try {
+    const target=resolvePath('/etc/resolv.conf');
+    return target==='/etc/resolv.conf'?[]:[target];
+  } catch(error) {
+    if(error.code==='ENOENT'||error.code==='ENOTDIR')return [];
+    throw error;
+  }
+}
+
 /** Codex App Server thread options for a frozen scope. Project scope replaces the legacy sandbox with a named permission
  *  profile: minimal system reads, the Node/CLI install, the Workbench tool directory, and write access to workspace roots only. */
 export function codexPermissionOptions(scope,{toolRoots=[],writeRoots=[]}={}) {
   if(scope==='device')return {sandbox:'danger-full-access',approvalPolicy:'never',config:{}};
   if(scope!=='project'&&scope!=='device-approval')return null;
-  const reads=[...new Set([dirname(dirname(process.execPath)),...toolRoots].filter(Boolean))];
+  const reads=[...new Set([dirname(dirname(process.execPath)),...resolverConfigReadPaths(),...toolRoots].filter(Boolean))];
   const filesystem={':minimal':'read',':workspace_roots':'write',...Object.fromEntries(reads.map(path=>[path,'read'])),
     ...Object.fromEntries([...new Set(writeRoots.filter(Boolean))].map(path=>[path,'write']))};
   return {sandbox:null,approvalPolicy:scope==='device-approval'?'on-request':'never',

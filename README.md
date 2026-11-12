@@ -1,6 +1,28 @@
 English | [Simplified Chinese](README.zh-CN.md)
 
-# Agent Workbench
+# Agent Workbench — Personal Edition
+
+A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-ctrl/workbench), for a personal, self-hosted Claude Code / Codex workspace. The original authors built the collaboration platform; this fork packages a small set of usability and deployment improvements under the same [MIT license](LICENSE).
+
+**Start here:** [personal server setup](docs/PERSONAL-SETUP.md) · [中文安装说明](docs/PERSONAL-SETUP.zh-CN.md) · [fork changes](docs/PERSONAL-CHANGES.md).
+
+### What this fork adds
+
+- Neutral charcoal dark mode that follows the device's light/dark preference.
+- Mobile keyboard layout adjustments, including iPhone viewport panning.
+- A separate working folder for **every new native session**. Same titles still create different folders; retries reuse the same folder; existing sessions retain their history and directory.
+- New browser sessions on a connected cloud Worker without requiring an extra SSH device registration. iTerm launches still require SSH.
+- An optional **read-only Syncthing status display** for an existing, explicitly configured two-way folder pair. Installing this fork does not start or configure synchronization.
+- Linux Codex DNS resolver symlink access within its configured project permission profile.
+- “Project files” instead of “0 code repositories” when a project has no registered Git repositories.
+
+Release `v0.4.0-personal.1` is based on upstream commit [`fcee919`](https://github.com/robinli1228-ctrl/workbench/commit/fcee9192f3587ab621925eebc29e1d16c783800e), **not the latest upstream main**. The enhanced branch is `personal`; the fork's `main` remains the upstream baseline imported when the fork was created. Install the tagged release below. The existing update panel compares against `main`, so use this fork's releases for Personal Edition updates; it never installs updates automatically.
+
+No accounts, subscriptions, vendor CLI binaries, login sessions, hosted service, or private project data are included. Each operator supplies their own runtime and credentials. This fork is not affiliated with Anthropic or OpenAI and does not change provider availability, terms, or account eligibility.
+
+---
+
+The upstream platform overview follows.
 
 **Bring your AI coding CLIs together. Let them plan, build, review, and pass work to one another.**
 
@@ -66,6 +88,10 @@ Each group has its own task list with descriptions, steps, owners, status, and c
 
 The Sessions view lets you browse and continue supported native CLI conversations. Read replies, expand tool calls on demand, and queue follow-up messages while a reply is running.
 
+Every new session gets a unique folder under the selected device's `native-sessions` directory, separate from managed projects and other sessions, even when titles match. This applies to page and iTerm creation. Retrying the same creation reuses its folder; continuing an existing conversation keeps its original folder and history. Creating a session does not enable file synchronization.
+
+New sessions opened on the page use the device's existing Worker connection; a cloud Worker does not need a separate SSH registration. Preparing a cloud iTerm launch still requires SSH access.
+
 Claude and Codex also support side questions for a separate discussion alongside the main flow. History, side-question, and quota capabilities vary by CLI.
 
 ### Hand work between your computer and servers
@@ -74,9 +100,13 @@ Run planning or interactive work on your computer and assign another role to a s
 
 Bind the corresponding project folders on participating devices. Use fixed-commit Git deliveries when a reviewer or collaborator needs an exact code version. Optional source synchronization exchanges saved files within explicitly configured scopes, with visible status and conflict records. Synchronization is enabled per project scope; it does not commit, merge, or deploy code. When all participating Workers support bounded transfers, both manual and automatic synchronization split large changes into ordered parts instead of rejecting the project for having more than 10,000 files. File-size, storage, exclusion, and conflict protections still apply. Home automatically reclaims unused synchronization content during maintenance and before a storage-limit refusal, while preserving active transfers, retained versions and conflict evidence.
 
+An existing Syncthing folder pair can be observed through a private `DATA_DIR/external-file-sync.json` mapping. Its live status replaces the built-in sync-off indicator without enabling another transfer engine. The project sync panel shows observed counts and connection state; synchronization controls remain with Syncthing. See the architecture document for configuration.
+
 Cross-device collaboration passes work and its inputs between roles. It does not migrate a vendor's native session to another device.
 
 ### Inspect the work and its outputs
+
+The web interface follows the device’s light or dark appearance automatically, including live changes while the page is open. Chat, settings, file previews and mobile input controls use the same appearance.
 
 Open run details to inspect inputs, CLI output, tool calls, and results. Media reads retain verified continuous file prefixes on Home, so later playback or downloads reuse saved bytes and fetch the missing suffix; files beyond the cache limit still stream without a saved copy. View Markdown reports and file previews in a dialog or side panel. Long history and tool details load on demand.
 
@@ -87,6 +117,8 @@ Device availability, queues, failures, and supported Token or quota information 
 ### Keep your existing CLI environment
 
 Install and log in to the CLIs on the devices where they will run. Workbench uses those native runtimes and their tool environments. GitHub and Gitee repository hosting are supported.
+
+Linux Codex project scope enables network access and reads the actual target of `/etc/resolv.conf` when it is a symlink, including systemd-resolved setups. External tools and MCP connections still need to be configured on the execution device; logging in does not copy another device's tools.
 
 Shared project rules and preferences belong in the project's `AGENTS.md`, with a `CLAUDE.md` pointer where needed. Workbench also keeps one platform memory shared by every project (environment, accounts and secrets, lessons, procedures, personal details, platform-wide decisions), organized once a day from all group chats by a separately configured small model (which also merges duplicates daily) and searched with `wb memory search` by roles and by CLIs on the Sessions page; a project's own decisions stay in its chat history (`wb history search`). It is not added to prompts and can be edited in Settings → Memory. Existing instruction files are preserved when a project is prepared. Role-specific instructions can define how each collaborator contributes.
 
@@ -113,10 +145,13 @@ The implementation uses JavaScript ES modules, Node.js, SQLite, and a browser/PW
 ## Quick start (single machine)
 
 ```sh
-git clone https://github.com/robinli1228-ctrl/workbench.git
-cd workbench
+git clone --branch v0.4.0-personal.1 https://github.com/zhangyc-413/workbench-personal.git
+cd workbench-personal
 nvm use          # optional, if you use nvm
 npm ci
+mkdir -p "$HOME/workbench-projects"
+export WORKER_ROOTS="$HOME/workbench-projects"
+export WORKSPACE_ROOT="$HOME/workbench-projects"
 npm run dev
 ```
 
@@ -148,6 +183,7 @@ Use [`.env.example`](.env.example) as a reference. Workbench does not automatica
 | `WORKER_TOKEN` | Shared Worker registration credential; must match Home |
 | `HOME_URL` | Worker's WebSocket connection to Home |
 | `WORKER_ROOTS` | Project directories the Worker may use |
+| `WORKSPACE_ROOT` | Default parent for new projects and independent sessions; use a dedicated folder, not an existing project's root |
 | `WORKER_READ_ROOTS` | Optional extra folders (e.g. a local service's logs) that roles on other devices, and Sessions-page CLIs on any device, may read with `wb device ls/read`; read-only, separated like `PATH` |
 | `WORKER_DATA_DIR` | Private data directory for that Worker |
 | `WORKER_CONCURRENCY` | Device execution capacity; defaults to `2` |

@@ -10,8 +10,8 @@ Thanks for helping improve the workbench. Please read `docs/OPERATING-GUIDE.md` 
 
 ## Workflow
 
-1. Fork the repository and create a branch from `main`.
-2. Make your change and run `npm run check` (Node >= 22.16).
+1. Fork the repository and create a branch from `personal`. This fork's `main` retains imported upstream code.
+2. Make your change and run `npm ci`, `npm run check`, the relevant tests, and `git diff --check` with the Node version in `.nvmrc`.
 3. Open a pull request describing what changed and why.
 
 ## Reporting issues

@@ -288,8 +288,31 @@ initWorkspaceColumns();
 const mobilePanel = drawers.set;
 document.querySelector('#mobile-projects').innerHTML = UI_ICON.folder;
 document.querySelector('#mobile-roles').innerHTML = UI_ICON.roles;
-function viewportHeight() { document.documentElement.style.setProperty('--app-height', `${window.visualViewport?.height || window.innerHeight}px`); }
-window.visualViewport?.addEventListener('resize', viewportHeight); window.addEventListener('resize', viewportHeight); viewportHeight();
+// iOS can pan the visual viewport as well as shrink it when the keyboard opens.
+// Keep the shell and its drawers in the visible area without moving focus or the caret.
+let viewportFrame = 0;
+function viewportHeight() {
+  viewportFrame = 0;
+  const viewport = window.visualViewport;
+  const mobile = drawers.isMobile();
+  // Leave the layout alone during pinch zoom so the user can magnify and pan it.
+  if (mobile && viewport && Math.abs(viewport.scale - 1) > 0.01) return;
+  const height = viewport?.height || window.innerHeight;
+  const root = document.documentElement;
+  root.style.setProperty('--app-height', `${height}px`);
+  root.style.setProperty('--app-offset-top', `${mobile ? Math.max(0, viewport?.offsetTop || 0) : 0}px`);
+  root.toggleAttribute('data-compact-viewport', mobile && height < 500);
+}
+function queueViewportHeight() {
+  if (!viewportFrame) viewportFrame = requestAnimationFrame(viewportHeight);
+}
+window.visualViewport?.addEventListener('resize', queueViewportHeight);
+window.visualViewport?.addEventListener('scroll', queueViewportHeight);
+window.addEventListener('resize', queueViewportHeight);
+window.addEventListener('pageshow', queueViewportHeight);
+document.addEventListener('focusin', queueViewportHeight);
+document.addEventListener('focusout', queueViewportHeight);
+viewportHeight();
 
 const remoteAccessUI=createRemoteAccessSettingsUI({root:document.querySelector('#remote-access-settings'),api});
 function openSettings(value = 'general') {
@@ -368,12 +391,13 @@ function renderSyncDot(){
   const state=connected&&['green','orange','red'].includes(indicator?.state)?indicator.state:'gray';
   const title=connected?indicator?.title||t('File sync is off for this project'):t('{connection} · sync status unknown',{connection:t(app.connection?.message||'Connecting to Home…')});
   dot.dataset.sync=state;dot.textContent=title;dot.title=title;dot.setAttribute('aria-label',title);
-  dot.setAttribute('aria-disabled',String(state!=='red'||syncRetrying.has(projectId)));
+  const external=(app.data?.sourceSyncSummaries||[]).find(s=>s.projectId===projectId)?.external;
+  dot.setAttribute('aria-disabled',String((!external&&state!=='red')||syncRetrying.has(projectId)));
 }
 /** Preserve the existing explicit retry/settings action, without dispatching anything on display or in Sessions. */
 async function syncDotClick(){
   const projectId=syncDotProjectId();if(!projectId||!app.lastStateAt||app.connection?.state!=='connected'||syncRetrying.has(projectId))return;
-  const indicator=(app.data?.sourceSyncSummaries||[]).find(s=>s.projectId===projectId)?.indicator;if(indicator?.state!=='red')return;
+  const indicator=(app.data?.sourceSyncSummaries||[]).find(s=>s.projectId===projectId)?.indicator;const external=(app.data?.sourceSyncSummaries||[]).find(s=>s.projectId===projectId)?.external;if(!external&&indicator?.state!=='red')return;
   if(!indicator.retry){openSettings('project');document.querySelector('#project-tab-sync')?.click();return;}
   syncRetrying.add(projectId);renderSyncDot();
   try{await api(`/api/projects/${encodeURIComponent(projectId)}/source-sync/batches`,{method:'POST',json:{requestId:crypto.randomUUID(),...indicator.retry}});await refreshState({quiet:true});}
@@ -765,7 +789,7 @@ function renderProjects() {
     // Same right column as the session list: nothing beside the name, the running spinner beside the second line.
     const copy = create('span', 'project-item-copy has-status'), status = create('span', 'list-run-status');
     status.setAttribute('aria-hidden', 'true');
-    copy.append(create('strong', '', chat.title), create('span', 'list-device-slot'), create('small', '', chat.isDefault?(project.supervisorRoleId ? t(count===1?'{count} code repository':'{count} code repositories', { count }) : t(count===1?'{count} node workspace':'{count} node workspaces', { count })):project.name), status);
+    copy.append(create('strong', '', chat.title), create('span', 'list-device-slot'), create('small', '', chat.isDefault?(project.supervisorRoleId ? (count?t(count===1?'{count} code repository':'{count} code repositories', { count }):t('Project files')) : t(count===1?'{count} node workspace':'{count} node workspaces', { count })):project.name), status);
     button.title = `${chat.title} · ${project.name}${running?` · ${t('In progress')}`:''}`;
     button.setAttribute('aria-label', button.title);
     if (active) button.setAttribute('aria-current', 'page');

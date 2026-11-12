@@ -4,6 +4,15 @@
  * Brand and product names (Codex, Gitee, GitHub, Windows App, iTerm, ...) are intentionally left as they are inside sentences.
  */
 export default {
+  "This project uses external file sync. Manage the existing service before switching sync engines.": "本项目已使用外部同步。切换同步方式前，请先处理现有同步服务。",
+  "Built-in sync stays off to avoid two services changing the same files.": "工作台内置同步保持关闭，避免两套服务重复处理文件。",
+  "Sync continues with the page closed. A sleeping or disconnected computer catches up after reconnecting.": "关闭网页不影响同步；电脑睡眠或断网后，恢复连接时继续同步。",
+  "Only included project files are synchronized. Excluded folders and credentials are not included.": "只同步已纳入范围的项目文件；排除的目录和登录凭据不参与同步。",
+  "Last checked: {time}": "最近检查：{time}",
+  "Pending items across devices: {count}": "两端待同步项：{count}",
+  "Files on this device: {count}": "当前设备文件数：{count}",
+  "Automatic two-way sync is managed by Syncthing. Workbench only reads its status.": "已配置 Syncthing 自动双向同步，工作台显示它的实际状态。",
+  "Project files": "项目文件夹",
   "Multiple files in this turn have this name.": "本轮有多个同名文件，无法确定位置。",
   "File location not found in this turn.": "本轮记录中未找到文件位置。",
   "Could not load this turn's file locations.": "暂时无法读取本轮的文件位置。",

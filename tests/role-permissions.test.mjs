@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { tmpdir } from 'node:os';
-import { supportedPermissionScopes, codexPermissionOptions, resolveRolePermissionScope, permissionScopeIssue } from '../src/role-permissions.mjs';
+import { supportedPermissionScopes, codexPermissionOptions, resolveRolePermissionScope, permissionScopeIssue, resolverConfigReadPaths } from '../src/role-permissions.mjs';
 import { warmSessionFingerprint } from '../src/warm-sessions.mjs';
 import { CodexSession } from '../src/codex.mjs';
 import { Store } from '../src/store.mjs';
@@ -11,6 +11,16 @@ import { Rooms } from '../src/rooms.mjs';
 
 const message = code => `permission:${code}`;
 const worker = scopes => ({ id: 'w1', online: true, capabilities: { permissionScopes: scopes } });
+
+test('Linux DNS allows only the resolver symlink target, not its runtime directory', () => {
+  const target='/run/systemd/resolve/stub-resolv.conf';
+  const resolvePath=path=>{assert.equal(path,'/etc/resolv.conf');return target;};
+  assert.deepEqual(resolverConfigReadPaths({platform:'linux',resolvePath}),[target]);
+  assert.deepEqual(resolverConfigReadPaths({platform:'linux',resolvePath:path=>path}),[],'ordinary resolver is already minimal');
+  assert.deepEqual(resolverConfigReadPaths({platform:'darwin',resolvePath:()=>{throw Error('must not resolve');}}),[]);
+  for(const code of ['ENOENT','ENOTDIR'])assert.deepEqual(resolverConfigReadPaths({platform:'linux',resolvePath:()=>{throw Object.assign(Error('missing'),{code});}}),[]);
+  assert.throws(()=>resolverConfigReadPaths({platform:'linux',resolvePath:()=>{throw Object.assign(Error('denied'),{code:'EACCES'});}}),/denied/);
+});
 
 test('only verified combinations are offered', () => {
   assert.deepEqual(supportedPermissionScopes('codex', 'linux'), ['project', 'device', 'device-approval']);
@@ -28,6 +38,7 @@ test('Codex options match each scope', () => {
   assert.equal(project.approvalPolicy, 'never');
   assert.equal(project.config.default_permissions, 'workbench_project');
   const fs = project.config['permissions.workbench_project.filesystem'];
+  for(const path of resolverConfigReadPaths())assert.equal(fs[path],'read','resolver targets are included in the actual profile');
   assert.equal(fs[':minimal'], 'read'); assert.equal(fs[':workspace_roots'], 'write'); assert.equal(fs['/opt/wb'], 'read'); assert.equal(fs['/repo/.git'], 'write');
   assert.deepEqual(project.config['permissions.workbench_project.network'], { enabled: true });
   assert.equal(codexPermissionOptions('device-approval').approvalPolicy, 'on-request');

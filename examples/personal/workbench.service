@@ -1,0 +1,18 @@
+# Template only. Replace both xxxxx values before installation.
+# The startup script lives outside Git and exports private configuration.
+[Unit]
+Description=Agent Workbench Personal Edition
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=xxxxx
+ExecStart=/bin/sh /xxxxx/run.sh
+Restart=always
+RestartSec=5
+UMask=0077
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

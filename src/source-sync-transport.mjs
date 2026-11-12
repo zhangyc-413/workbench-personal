@@ -52,7 +52,7 @@ function receiptEnvelope(commandId,result){
 
 /** The existing Home listener transports content; scoped transfer credentials never enter model input. */
 export class SourceSyncHome {
-  constructor({db,data,online,socket,change,rooms,query,now=Date.now,watchUpload=null}){Object.assign(this,{db,online,socket,change,watchUpload});this.sync=new SourceSync({db,online,change,now});
+  constructor({db,data,online,socket,change,rooms,query,now=Date.now,watchUpload=null,externalFileSync=null}){Object.assign(this,{db,online,socket,change,watchUpload,externalFileSync});this.sync=new SourceSync({db,online,change,now});
     // A failed cleanup is logged and retried at the next start; it must not keep Home from starting.
     try{this.sync.dropExcludedEntries();}catch(error){console.error(tr('sourceSync.cleanupFailed'),error.message);}
     this.storage=new SourceSyncStorage({db,root:join(data,'source-sync')});this.ticking=false;this.baselines=new SourceSyncInitialization(this);
@@ -302,7 +302,8 @@ export class SourceSyncHome {
   async browserHttp(req,res,pathname){const m=pathname.match(/^\/api\/projects\/([^/]+)\/source-sync(?:\/(.*))?$/);if(!m)return false;
     const projectId=m[1],route=m[2]||'';if(!this.db.get('projects',projectId))throw syncError('project_missing');
     let value;
-    if(req.method==='GET'&&!route)value=this.sync.status(projectId);
+    if(this.externalFileSync?.configured(projectId)&&req.method!=='GET')throw Error('This project uses external file sync. Manage the existing service before switching sync engines.');
+    if(req.method==='GET'&&!route){await this.externalFileSync?.refresh([projectId]);value={...this.sync.status(projectId),external:this.externalFileSync?.view(projectId)||null};}
     else if(req.method==='GET'&&route==='pending'){const q=new URL(req.url,'http://localhost').searchParams;value=this.baselines.pending(projectId,q.get('repositoryId'),{after:q.get('after')||'',limit:q.get('limit')});}
     else if(req.method==='GET'&&route==='initializations')value=initializationPage(this.db,projectId,Object.fromEntries(new URL(req.url,'http://localhost').searchParams));
     else if(req.method==='GET'&&route==='audit')value=this.sync.audit.list(projectId,Object.fromEntries(new URL(req.url,'http://localhost').searchParams));

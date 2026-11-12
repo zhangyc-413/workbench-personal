@@ -180,6 +180,8 @@ export default {
  "Files the CLI reads, edits or creates in page turns appear here.": "CLI 在页面轮次中读取、修改或新建的文件会显示在这里。",
  "Named in replies": "回复中提到的文件",
  "Working folder": "工作目录",
+ "Created automatically when the session starts": "开始会话时自动创建独立文件夹",
+ "Every new session gets its own folder on this device. Sessions with the same title also use different folders.": "每个新会话都会在所选设备上创建独立文件夹，同名会话也互不共用。",
  "Empty folder": "空目录",
  "Load more": "加载更多",
  "Current file": "当前文件",

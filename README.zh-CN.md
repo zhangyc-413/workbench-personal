@@ -2,7 +2,29 @@
 
 群聊 Agent 卡片新增临时“侧边聊天”（Claude / Codex），复用会话页的输入、附件和只读侧聊机制。引用选中的卡片，使用原会话当前上下文，不回写群聊或主会话。需要 Home 与 Worker 同时支持新能力；本分支尚未部署。
 
-# Agent 协作工作台
+# Agent 协作工作台 · 个人增强版
+
+这是 [robinli1228-ctrl/workbench](https://github.com/robinli1228-ctrl/workbench) 的社区分支，保留原作者的协作平台及 [MIT 许可证](LICENSE)，把个人云端使用过程中做的改进整理成可自行部署的版本。
+
+**先看：[中文安装说明](docs/PERSONAL-SETUP.zh-CN.md) · [English setup](docs/PERSONAL-SETUP.md) · [改进和版本边界](docs/PERSONAL-CHANGES.md)。**
+
+这个分支新增或调整了：
+
+- 跟随系统切换日间、夜间，夜间使用中性深灰配色。
+- 手机输入框随可见屏幕高度调整，处理 iPhone 弹出键盘后的页面偏移。
+- **每次新建原生会话都创建独立文件夹**，同名会话也分开；重试复用同一个文件夹，继续旧会话保留原目录和历史。
+- 云端 Worker 已连接时，可以直接在网页创建会话，无需额外登记 SSH；iTerm 方式仍需要 SSH。
+- 显示已配置 Syncthing 文件夹的同步状态。这里只观察状态，不负责安装或开启同步。
+- 修复 Linux 上 Codex 项目权限范围内读取 DNS 配置软链接目标的问题。
+- 没有关联 Git 仓库的项目显示“项目文件”，避免误以为没有文件。
+
+首版 `v0.4.0-personal.1` 基于上游 [`fcee919`](https://github.com/robinli1228-ctrl/workbench/commit/fcee9192f3587ab621925eebc29e1d16c783800e)，并未合入上游此后的全部更新。增强代码位于 `personal` 分支；`main` 保留创建 Fork 时导入的上游版本。建议安装固定发布版本。现有“检查更新”界面仍比较 `main`，个人增强版请以本仓库 Releases 为准；界面不会自动安装更新。
+
+仓库不包含账号、订阅、厂商 CLI 软件、登录状态、托管服务或私人项目资料。使用者自行安装 CLI、登录自己的账号并配置工具。本分支与 Anthropic、OpenAI 没有官方关联，也不改变服务商的地区、账号或使用条款。
+
+---
+
+以下为原项目的平台介绍。
 
 一个自托管的项目群聊工作台，把你已有的 AI 编程 CLI 和订阅组织成协作团队。Codex、Claude Code、Grok Build、Antigravity 可以作为不同角色，在 Mac 或服务器执行；Home 保存记录、维护协作状态，Worker 驱动真实的原生 CLI。
 
@@ -140,8 +162,13 @@ Claude、Codex 的额度从正常群聊和会话的执行连接被动接收，�
 ## 快速开始（单机）
 
 ```sh
+git clone --branch v0.4.0-personal.1 https://github.com/zhangyc-413/workbench-personal.git
+cd workbench-personal
 nvm use          # 可选，使用 .nvmrc 中的版本
-npm install      # 或：npm ci
+npm ci
+mkdir -p "$HOME/workbench-projects"
+export WORKER_ROOTS="$HOME/workbench-projects"
+export WORKSPACE_ROOT="$HOME/workbench-projects"
 npm run dev      # 以两个独立进程启动 Home 和 Worker
 ```
 

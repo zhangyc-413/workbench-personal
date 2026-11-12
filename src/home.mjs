@@ -1,3 +1,4 @@
+import {ExternalFileSync} from './external-file-sync.mjs';
 import {createHomeNativeTurns} from './native-turns-home.mjs';
 import {mergeReportedRuntimes,expireRuntimeQuota} from './runtime-quota.mjs';
 import {noteRoleCompaction,dueRoleCompactions,recordRoleCompaction} from './role-compaction.mjs';
@@ -53,6 +54,7 @@ import { ProjectSetup, validateLocalSupervisor, setupRules } from './project-set
 import { roleWorkspace } from './project-repositories.mjs';
 import { folderName,assertProjectReady } from './project-space.mjs';
 import {folderAccessFor,nativeFolderAccess,FolderPreparations,runOpenablePath} from './folder-access.mjs';
+import {prepareIndependentNativeSessionFolder} from './folders.mjs';
 import { CredentialStore, Hosting } from './hosting.mjs';
 import { ProjectAdmin } from './project-admin.mjs';
 import { DeviceAdmin } from './device-admin.mjs';
@@ -84,6 +86,7 @@ const base = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const softwareVersion=await readSoftwareVersion(base);
 const softwareUpdates=new SoftwareUpdates({repository:softwareVersion.repository});
 const data = resolve(process.env.DATA_DIR || join(base, '.data/home'));
+const externalFileSync=await new ExternalFileSync({configFile:join(data,'external-file-sync.json')}).load();
 initLanguage(data); // load the saved language (data/language.json) before any text is produced
 const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 4317);
@@ -200,7 +203,7 @@ const change = () => { clearTimeout(changeTimer);changeTimer=null;for (const r o
 const outputChanged=()=>{if(!changeTimer){changeTimer=setTimeout(change,100);changeTimer.unref();}};
 const send = (ws, payload) => { if (ws?.readyState === 1) ws.send(JSON.stringify(payload)); };
 const online = id => sockets.get(id)?.readyState === 1&&!reconnectingNodes.has(id);
-const sourceSync=new SourceSyncHome({db,data,online,socket:id=>online(id)?sockets.get(id):null,change,rooms,query:workerQuery,watchUpload:(nodeId,req)=>mediaStreams.watchUpload(nodeId,req)});
+const sourceSync=new SourceSyncHome({db,data,externalFileSync,online,socket:id=>online(id)?sockets.get(id):null,change,rooms,query:workerQuery,watchUpload:(nodeId,req)=>mediaStreams.watchUpload(nodeId,req)});
 const projectFiles=new ProjectFiles({db,online,query:workerQuery});
 const recentOutputs=new RecentOutputs({db,compute:(projectId,options)=>recentProjectArtifacts(db,projectId,workerQuery,online,projectFiles,options)});
 // The media ticket key survives restarts, so a file version keeps its link (and the browser its cached copy) across them.
@@ -402,7 +405,7 @@ function snapshot(scope=null) {
     roleSwitches:db.list('roleSwitches').map(roleSwitchView),
     sessionQueues:Object.fromEntries(db.list('projects').filter(p=>db.listProject('collaborationSessions',p.id).length).map(p=>[p.id,new SessionQueue(db).status(p.id)])),
     cliRecoveries:db.list('cliRecoveries').filter(r=>!['ready','resolved'].includes(r.state)).map(({binding,fingerprint,...record})=>record),
-    sourceSyncSummaries:db.list('projects').map(p=>{const conflicts=db.listProject('sourceSyncConflicts',p.id);return {id:p.id,projectId:p.id,enabled:sourceSync.sync.config(p.id).enabled,conflicts:conflicts.filter(c=>!['resolved','cancelled'].includes(c.status)).length,indicator:syncIndicator(db,p.id,{online,conflicts})};}),
+    sourceSyncSummaries:db.list('projects').map(p=>{const conflicts=db.listProject('sourceSyncConflicts',p.id);return {id:p.id,projectId:p.id,enabled:sourceSync.sync.config(p.id).enabled,conflicts:conflicts.filter(c=>!['resolved','cancelled'].includes(c.status)).length,external:externalFileSync.view(p.id),indicator:externalFileSync.view(p.id)?.indicator||syncIndicator(db,p.id,{online,conflicts})};}),
     terminalSessions: db.list('terminalSessions').filter(s=>!['released','cancelled'].includes(s.status)).map(s=>terminalLaunchView({...s,roleId:s.roleId||(s.runId?db.get('runs',s.runId)?.roleId:null)})),
     attachmentTransfers:db.list('attachmentTransfers').slice(-200).map(({fingerprint,...t})=>t),
     hostingAccounts: db.list('hostingAccounts'), devices: db.list('devices').map(d => ({ ...d, status: online(d.nodeId) ? 'online' : d.status })), repositoryOperations: db.list('repositoryOperations'),
@@ -766,6 +769,7 @@ const server = http.createServer(async (req, res) => {
         return res.end(bytes);
       }
       if (pathname === '/api/state' && req.method === 'GET') {
+        await externalFileSync.refresh(db.list('projects').map(p=>p.id));
         const workspace=url.searchParams.get('view')==='workspace';
         const state=snapshot(workspace?workspaceScope(db,url.searchParams.get('projectId')):null);
         const view=workspace?workspaceFeed.read(state,url.searchParams.get('projectId'),url.searchParams.get('cursor'),url.searchParams.get('conversationId')):state;
@@ -981,16 +985,28 @@ const server = http.createServer(async (req, res) => {
         if(b.sessionId&&!historyRecord)throw Error('Session is not registered with Workbench');
         if(worker.capabilities?.nativeTakeover!==1)throw Error('Upgrade this Worker to safely take over native sessions');
         if(typeof b.operationId!=='string'||!/^[a-zA-Z0-9-]{8,100}$/.test(b.operationId)||typeof b.allowAll!=='boolean')throw Error('Invalid terminal request');
+        const launchTarget=b.launchTarget??'terminal';
+        if(!['page','terminal'].includes(launchTarget))throw Error('Invalid native launch target');
+        if(launchTarget==='page'&&worker.capabilities?.nativePageOpen!==1)throw Error('Upgrade this Worker to open sessions on this page');
         const fresh=!b.sessionId,catalogEntryId=b.entryId||(fresh?b.operationId:nativeCatalogRecords(nodeId,b.runtime).find(entry=>entry.sessionId===b.sessionId)?.id||null),entry=catalogEntryId?db.get('nativeCatalogEntries',catalogEntryId):null,prior=db.get('terminalSessions',b.operationId);
         if(fresh&&(typeof b.title!=='string'||!b.title.trim()||b.title.trim().length>120))throw Error('Session title is required and must be at most 120 characters');
         if(b.entryId&&(typeof b.entryId!=='string'||!/^[a-zA-Z0-9-]{8,100}$/.test(b.entryId)))throw Error('Invalid native catalog entry');
         if(fresh&&entry&&(entry.nodeId!==nodeId||entry.runtime!==b.runtime||entry.title!==b.title.trim()||entry.status!=='draft'&&!(prior?.catalogEntryId===entry.id&&prior.status==='prepared')))throw Error('Native catalog entry cannot be reused for a different or active session');
         const freshSessionId=fresh&&['claude','grok'].includes(b.runtime)?entry?.sessionId||randomUUID():null;
-        const fingerprint=JSON.stringify({nodeId,runtime:b.runtime,sessionId:b.sessionId||null,freshSessionId,entryId:catalogEntryId,workspace:b.workspace||null,title:fresh?b.title.trim():null,allowAll:b.allowAll});
+        const bindings=[...db.list('workspaces'),...db.list('repositoryWorkspaces')].filter(w=>w.nodeId===nodeId).map(w=>({projectId:w.projectId,localRoot:w.localRoot}));
+        if(fresh){
+          // Enforce independence for both page and iTerm creation, including requests from an older browser.
+          // Prepared retries and exact native resumes keep their previously chosen directory.
+          if(prior)b.workspace=prior.workspace;
+          else{
+            if(worker.capabilities?.nativeDefaultFolder!==1||worker.capabilities?.nativeProjectFolder!==1)throw Error('Upgrade this Worker to prepare the default session folder.');
+            b.workspace=(await prepareIndependentNativeSessionFolder((action,path)=>workerQuery({nodeId},action,path,15000),{bindings,entryId:catalogEntryId})).path;
+          }
+        }
+        const fingerprint=JSON.stringify({nodeId,runtime:b.runtime,sessionId:b.sessionId||null,freshSessionId,entryId:catalogEntryId,workspace:b.workspace||null,title:fresh?b.title.trim():null,allowAll:b.allowAll,...(launchTarget==='page'?{launchTarget}:{})});
         if(prior){if(prior.nativeFingerprint!==fingerprint||prior.status!=='prepared')throw Object.assign(Error('Terminal request is already used or changed'),{folderPreparationReleased:db.get('folderPreparations',`${nodeId}:${b.operationId}`)?.status==='cancelled'});return json(res,terminalLaunchView(prior));}
         const device=db.list('devices').find(d=>d.nodeId===nodeId);
-        if(worker.nodeKind==='cloud'&&!device)throw Error('Register SSH access for this server first');
-        const bindings=[...db.list('workspaces'),...db.list('repositoryWorkspaces')].filter(w=>w.nodeId===nodeId).map(w=>({projectId:w.projectId,localRoot:w.localRoot}));
+        if(launchTarget==='terminal'&&worker.nodeKind==='cloud'&&!device)throw Error('Register SSH access for this server first');
         return await withFolderPreparation(fresh&&worker.capabilities?.localFolderSelection===1&&b.workspace?{nodeId,scope:`native:${catalogEntryId}`,path:b.workspace,operationId:b.operationId}:null,async folderCandidate=>{
         const gitCredential=b.sessionId?await nativeTurns.gitCredentialFor(nodeId,b.runtime,b.sessionId):null;
         const input={runtime:b.runtime,sessionId:b.sessionId||null,record:historyRecord,freshSessionId,entryId:catalogEntryId,title:fresh?b.title.trim():null,workspace:folderCandidate?.root||b.workspace,folderCandidate,allowAll:b.allowAll,bindings,managedProjectIds:nativeSessionProjectIds(db,{nodeId,runtime:b.runtime,sessionId:b.sessionId}),...(gitCredential?{gitCredential}:{})};
@@ -1005,8 +1021,9 @@ const server = http.createServer(async (req, res) => {
         db.transaction(()=>{if(fresh)db.put('nativeCatalogEntries',{...entry,id:catalogEntryId,nodeId,runtime:b.runtime,sessionId:freshSessionId,title:b.title.trim(),workspace:preview.workspace,origin:'dialog',status:'preparing',hasHistory:false,previewAvailable:false,createdAt,modifiedAt:new Date().toISOString()});activateFolderBinding(folderCandidate);db.put('terminalSessions',claim);});change();
         try{
           const info=await workerQuery(claim,'native_terminal_prepare',{...input,workspace:preview.workspace,id:claim.id,projectId,nodeId},30000);
-          const identityFile=b.useLocalSshKey===true&&process.platform==='darwin'&&device?(await credentials.get(device.id))?.keyPath:null;
-          const value=terminalLaunchView({...claim,...info,status:'prepared',command:terminalCommand(info,device||null,identityFile)});
+          const identityFile=launchTarget==='terminal'&&b.useLocalSshKey===true&&process.platform==='darwin'&&device?(await credentials.get(device.id))?.keyPath:null;
+          // Page opens use the authenticated Worker connection, without an SSH/iTerm command.
+          const value=terminalLaunchView({...claim,...info,status:'prepared',...(launchTarget==='terminal'?{command:terminalCommand(info,device||null,identityFile)}:{})});
           if(db.get('terminalSessions',claim.id)?.status!=='preparing')throw Error('Terminal preparation expired');
           db.transaction(()=>{db.put('terminalSessions',value);if(fresh){const current=db.get('nativeCatalogEntries',catalogEntryId);db.put('nativeCatalogEntries',{...current,sessionId:info.sessionId||current.sessionId,status:'prepared',workspace:info.workspace,modifiedAt:new Date().toISOString()});}});change();return json(res,value,201);
         }catch(error){let status='blocked';try{await workerQuery(claim,'terminal_release',{id:claim.id});status='released';}catch{}const current=db.get('terminalSessions',claim.id);db.transaction(()=>{if(!['released','cancelled'].includes(current?.status))db.put('terminalSessions',{...claim,status,error:error.message});if(fresh&&status==='released'){const catalog=db.get('nativeCatalogEntries',catalogEntryId);if(catalog)db.put('nativeCatalogEntries',{...catalog,status:'draft',modifiedAt:new Date().toISOString()});}});change();throw error;}

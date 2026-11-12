@@ -1,10 +1,26 @@
 import { realpath, readdir, stat, mkdir, lstat, access } from 'node:fs/promises';
 import { constants } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { relative, isAbsolute, dirname, join, resolve } from 'node:path';
 import { tr } from './i18n.mjs';
 
 /** Check boundaries using canonical paths; the browser cannot widen the Worker's permitted root directories. */
 const inside = (root, path) => { const r = relative(root, path); return !r || (r !== '..' && !r.startsWith('../') && !isAbsolute(r)); };
+
+/** Home allocates every fresh session through the existing Worker folder operations.
+ * The stable catalog identity makes retries reuse their folder, while equal titles stay independent.
+ * First validate the shared container against all managed bindings, then create only its unique child.
+ * Keep this orchestration on Home so connected Workers do not need to interrupt running CLIs to upgrade.
+ */
+export async function prepareIndependentNativeSessionFolder(query, { bindings = [], entryId } = {}) {
+  if (typeof entryId !== 'string' || !/^[a-zA-Z0-9-]{8,100}$/.test(entryId)) throw new Error('Invalid native catalog entry');
+  const container = await query('native_default_folder', { bindings });
+  const name = `session-${createHash('sha256').update(entryId).digest('hex').slice(0, 32)}`;
+  // The Worker's named-child primitive accepts any permitted parent, including its own workspace root.
+  const result = await query('native_default_folder', { bindings, projectRoot: dirname(container.path), name });
+  if (result.path !== join(container.path, name)) throw new Error('Unexpected independent session folder');
+  return result;
+}
 
 /** Keep standalone sessions outside managed projects; create one child and preserve existing files on reuse. */
 /** A folder name typed by the user becomes one path segment: no separators, no hidden or relative names, at most 80 characters. */
