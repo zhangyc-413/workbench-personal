@@ -15,6 +15,7 @@ A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-
 - An optional **read-only Syncthing status display** for an existing, explicitly configured two-way folder pair. Installing this fork does not start or configure synchronization.
 - Linux Codex DNS resolver symlink access within its configured project permission profile.
 - “Project files” instead of “0 code repositories” when a project has no registered Git repositories.
+- Indexed native-session ownership checks keep scheduling responsive as task history grows.
 
 Release `v0.4.0-personal.1` is based on upstream commit [`fcee919`](https://github.com/robinli1228-ctrl/workbench/commit/fcee9192f3587ab621925eebc29e1d16c783800e), **not the latest upstream main**. The enhanced branch is `personal`; the fork's `main` remains the upstream baseline imported when the fork was created. Install the tagged release below. The existing update panel compares against `main`, so use this fork's releases for Personal Edition updates; it never installs updates automatically.
 

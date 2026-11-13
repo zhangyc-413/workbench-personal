@@ -73,6 +73,8 @@ export class Store {
       CREATE INDEX IF NOT EXISTS records_source_command_pending ON records(json_extract(data,'$.projectId'),json_extract(data,'$.nodeId')) WHERE kind='sourceSyncCommands' AND ${pendingSourceCommand};
       CREATE INDEX IF NOT EXISTS records_source_batch_open ON records(json_extract(data,'$.projectId')) WHERE kind='sourceSyncBatches' AND ${openSourceBatch};
       CREATE INDEX IF NOT EXISTS records_active_runs ON records(json_extract(data,'$.nodeId')) WHERE kind='runs' AND ${activeRun};
+      CREATE INDEX IF NOT EXISTS records_run_native_owner ON records(json_extract(data,'$.nativeSession.runtime'),json_extract(data,'$.nativeSession.id')) WHERE kind='runs';
+      CREATE INDEX IF NOT EXISTS records_role_native_owner ON records(json_extract(data,'$.runtime'),json_extract(data,'$.nativeSessionId')) WHERE kind='roleSessions';
       CREATE INDEX IF NOT EXISTS records_chat_tasks ON records(id) WHERE kind='tasks' AND ${chatTask};
       CREATE INDEX IF NOT EXISTS records_role_steering ON records(json_extract(data,'$.projectId'),json_extract(data,'$.roleId')) WHERE kind='tasks' AND json_extract(data,'$.steering') IS NOT NULL;
       CREATE INDEX IF NOT EXISTS records_schedulable_requests ON records(id) WHERE kind='coordinationRequests' AND ${schedulableRequest};
@@ -83,6 +85,17 @@ export class Store {
       CREATE INDEX IF NOT EXISTS records_native_driver_read ON records(json_extract(data,'$.projectId'),json_extract(data,'$.roleId'),json_extract(data,'$.nativeSession.id')) WHERE kind='runs';`);
   }
   get(kind, id) { const r = this.db.prepare('SELECT data FROM records WHERE kind=? AND id=?').get(kind, id); return r ? JSON.parse(r.data) : null; }
+  /** Ownership checks run during scheduling; never load historical prompts/results just to identify a session's device. */
+  nativeSessionOwners(runtime,sessionId) {
+    const sessions=this.db.prepare(`SELECT json_extract(data,'$.projectId') AS projectId,json_extract(data,'$.nodeId') AS nodeId
+      FROM records INDEXED BY records_role_native_owner WHERE kind='roleSessions'
+      AND json_extract(data,'$.runtime')=? AND json_extract(data,'$.nativeSessionId')=?`).all(runtime,sessionId);
+    const runs=this.db.prepare(`SELECT json_extract(r.data,'$.projectId') AS projectId,
+      CASE WHEN COALESCE(json_extract(r.data,'$.nodeId'),0) IN (0,'') THEN CASE WHEN json_extract(s.data,'$.projectId')=json_extract(r.data,'$.projectId') THEN json_extract(s.data,'$.nodeId') END ELSE json_extract(r.data,'$.nodeId') END AS nodeId
+      FROM records r INDEXED BY records_run_native_owner LEFT JOIN records s ON s.kind='roleSessions' AND s.id=json_extract(r.data,'$.roleSessionId')
+      WHERE r.kind='runs' AND json_extract(r.data,'$.nativeSession.runtime')=? AND json_extract(r.data,'$.nativeSession.id')=?`).all(runtime,sessionId);
+    return [...sessions,...runs];
+  }
   /** UI-only invalidation. Unknown SQL and external connections invalidate every kind; scheduling always reads SQLite. */
   readRevision(kinds) {
     this.revisionTracking=true;

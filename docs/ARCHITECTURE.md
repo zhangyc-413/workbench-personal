@@ -18,6 +18,8 @@ The supervisor chooses its own implementation methods and pursues missing capabi
 
 Explicit native-session sends and steers query `native_takeover_state` through the existing Worker channel. The response binds the lease, runtime and session to PID-identity verification and the Runner’s active-turn/resident state. Home applies it only if the captured takeover, lease and active turns have not changed while awaiting the response. Verified exit releases ownership; a retained process can reopen a falsely retiring takeover and settle absent old active turns. Closing, paused, unknown and unmatched states never authorize a duplicate launch. Preparation failures before resident attachment preserve the existing idle process report. This adds no polling or automatic retry of failed input.
 
+Native terminal ownership checks use indexed runtime/session lookups and project/device projections. They do not decode historical Run prompts or results during each scheduler tick. Original role-session device fallback, ambiguous ownership and unknown-device locks remain enforced; ownership is read fresh from SQLite on every check.
+
 ## Mobile viewport layout
 
 The browser shell and mobile drawers follow both the height and vertical offset of the visual viewport. Resize, viewport scroll, focus and page-restore events are coalesced into one animation frame; pinch zoom leaves the current layout unchanged. Mobile inputs retain a 16px font and composer height is bounded by the visible viewport. Below 500px of visible height, side questions collapse the source excerpt and auxiliary toolbar so their input and bottom navigation do not overlap. Text editing, IME handling and message dispatch remain in the existing composers.

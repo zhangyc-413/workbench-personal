@@ -63,11 +63,8 @@ export function freshTerminalArgs({runtime,model,effort,instructions='',workspac
 function nativeSessionOwnership(db,{nodeId,runtime,sessionId}) {
   const projects=new Set(),unknown=new Set();
   if(!sessionId||!runtime||!nodeId)return {projects,unknown};
-  const sessions=db.list('roleSessions'),byId=new Map(sessions.map(s=>[s.id,s]));
-  for(const session of sessions)if(session.runtime===runtime&&session.nativeSessionId===sessionId&&session.projectId){if(session.nodeId===nodeId)projects.add(session.projectId);else if(!session.nodeId)unknown.add(session.projectId);}
-  for(const run of db.list('runs'))if(run.nativeSession?.runtime===runtime&&run.nativeSession.id===sessionId&&run.projectId){
-    const saved=byId.get(run.roleSessionId),device=run.nodeId||(saved?.projectId===run.projectId?saved.nodeId:null);
-    if(device===nodeId)projects.add(run.projectId);else if(!device)unknown.add(run.projectId);
+  for(const owner of db.nativeSessionOwners(runtime,sessionId))if(owner.projectId){
+    if(owner.nodeId===nodeId)projects.add(owner.projectId);else if(!owner.nodeId)unknown.add(owner.projectId);
   }
   return {projects,unknown};
 }
