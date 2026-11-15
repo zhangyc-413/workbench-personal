@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>重新加载 Workbench</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { max-width: 520px; margin: 12vh auto; padding: 24px; line-height: 1.7; }
+  h1 { font-size: 24px; } button, a { font: inherit; color: inherit; }
+  button { padding: 10px 18px; border: 1px solid #888; border-radius: 9px; cursor: pointer; }
+</style>
+<h1>重新加载工作台</h1>
+<p>只更新这个浏览器里的界面文件，保留登录、草稿、聊天记录和同步设置。</p>
+<p id="status" role="status">正在准备…</p>
+<button id="retry" hidden>重试</button>
+<p><a href="/">返回工作台</a></p>
+<noscript>请开启浏览器的 JavaScript，再重新打开此页。</noscript>
+<script>
+  (() => {
+    const status = document.querySelector('#status'), retry = document.querySelector('#retry');
+    let running = false;
+    const timeout = promise => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timeout')), 6000);
+      Promise.resolve(promise).then(resolve, reject).finally(() => clearTimeout(timer));
+    });
+    async function recover() {
+      if (running) return; running = true; retry.hidden = true;
+      status.textContent = '正在更新界面文件…';
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await timeout(navigator.serviceWorker.getRegistrations());
+          await timeout(Promise.all(registrations.filter(registration => {
+            const worker = registration.active || registration.waiting || registration.installing;
+            return registration.scope === location.origin + '/' && worker?.scriptURL === location.origin + '/sw.js';
+          }).map(registration => registration.unregister())));
+        }
+        if ('caches' in window) {
+          const keys = await timeout(caches.keys());
+          await timeout(Promise.all(keys.filter(key => key.startsWith('agent-workbench-static-')).map(key => caches.delete(key))));
+        }
+        status.textContent = '界面文件已更新，正在打开工作台…';
+        location.replace('/');
+      } catch {
+        status.textContent = '浏览器暂时没有完成更新，请重试。也可以按 Command + Shift + R 强制刷新工作台。';
+        running = false; retry.hidden = false;
+      }
+    }
+    retry.onclick = recover; void recover();
+  })();
+</script>
+</html>

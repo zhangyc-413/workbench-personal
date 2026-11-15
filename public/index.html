@@ -670,10 +670,53 @@
       <p id="api-token-error" class="form-feedback" role="alert" hidden></p>
       <div class="form-actions"><button class="secondary" id="cancel-api-token-dialog" type="button">Cancel</button><button class="primary" id="save-token" type="button">Save</button></div>
     </dialog>
-    <script type="module" src="/app.js"></script>
+    <script>
+      // Keep recovery independent of the module graph: a missing import must not leave a silent skeleton.
+      (() => {
+        let ready = false, notice, checking = false;
+        const chinese = (navigator.language || '').toLowerCase().startsWith('zh');
+        const copy = chinese ? {
+          slow: '页面加载时间较长，可以重新加载界面。', failed: '页面没有加载完整，请重新加载界面。',
+          recover: '重新加载界面', expired: '网站登录已过期，请重新登录。', login: '重新登录'
+        } : {
+          slow: 'The page is taking longer to load. You can reload the interface.', failed: 'The interface could not finish loading.',
+          recover: 'Reload interface', expired: 'Your website sign-in has expired. Please sign in again.', login: 'Sign in again'
+        };
+        function show(failed) {
+          if (ready) return;
+          if (!notice) {
+            notice = document.createElement('aside'); notice.id = 'startup-recovery'; notice.setAttribute('role', 'alert');
+            notice.style.cssText = 'position:fixed;z-index:10000;top:12px;left:50%;transform:translateX(-50%);width:min(580px,calc(100% - 24px));box-sizing:border-box;padding:16px 20px;border:1px solid #777;border-radius:12px;background:#252525;color:#f5f5f5;box-shadow:0 4px 24px #0005;font:15px/1.5 system-ui';
+            const text = document.createElement('p'); text.style.margin = '0 0 10px';
+            const link = document.createElement('a'); link.href = '/recover'; link.textContent = copy.recover;
+            link.style.cssText = 'display:inline-block;padding:8px 14px;border-radius:8px;background:#eee;color:#222;text-decoration:none';
+            notice.append(text, link); document.body.append(notice);
+          }
+          notice.firstChild.textContent = failed ? copy.failed : copy.slow;
+          if (checking) return; checking = true;
+          const controller = new AbortController(), deadline = setTimeout(() => controller.abort(), 5000);
+          fetch('/_access/session', { cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal })
+            .then(async response => {
+              if (response.status !== 401) return;
+              const result = await response.json();
+              // A bare Home has no gateway route; do not confuse its API token with website sign-in.
+              if (ready || result.error !== '登录已失效，请刷新页面重新登录') return;
+              notice.firstChild.textContent = copy.expired; notice.lastChild.href = '/_access'; notice.lastChild.textContent = copy.login;
+            }).catch(() => {}).finally(() => clearTimeout(deadline));
+        }
+        const deadline = setTimeout(() => show(false), 15000);
+        import('/app.js').then(() => {
+          ready = true; clearTimeout(deadline); notice?.remove();
+          window.__workbenchBootReady = true; window.dispatchEvent(new Event('workbench-ready'));
+        }).catch(error => { clearTimeout(deadline); console.error('Workbench startup failed', error); show(true); });
+      })();
+    </script>
     <script>
       if ('serviceWorker' in navigator && window.isSecureContext) {
-        window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(error => console.warn('PWA registration failed', error)));
+        // Start optional precaching only after the interface is initialized, so it cannot compete with imports.
+        const register = () => navigator.serviceWorker.register('/sw.js').catch(error => console.warn('PWA registration failed', error));
+        window.addEventListener('workbench-ready', register, { once: true });
+        if (window.__workbenchBootReady) register();
         // Page code is served from the local cache first. The page knows its own build (the meta tag Home stamps into
         // index.html) and compares it with Home's (/healthz): when they differ it asks the worker to update and offers a
         // reload instead of switching code under a running page. If the new worker still has not installed by then

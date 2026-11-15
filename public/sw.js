@@ -1,4 +1,4 @@
-const CACHE = 'agent-workbench-static-v223-complete-connect';
+const CACHE = 'agent-workbench-static-v224-startup-recovery';
 const STATIC = [
   '/computer-link.js',
   '/native-side-ask.js', '/group-side-ask.js', '/source-sync-audit.js',
