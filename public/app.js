@@ -110,6 +110,8 @@ const app = {
   loadingState: false,
   lastStateAt: null,
   stateCache: null,
+  stateCacheView: null,
+  stateController: null,
   stateGeneration: 0,
   fullRun: null,
   fullTask: null,
@@ -283,7 +285,7 @@ function createMobileDrawers() {
 const drawers = createMobileDrawers();
 const inspector=createWorkspaceInspector({api,documentPreview,refreshState,onError:setError,getConversationId:()=>app.selectedConversationId||app.selectedProjectId,onSideAskOpen:()=>{setInspectorMode('shown');mobilePanel('roles');},getProject:getCurrentProject,getData:()=>app.data,openDevices:()=>openSettings('devices'),openProjectFolder});
 const conversationTaskUI=createConversationTaskUI({api,getScope:()=>({projectId:app.selectedProjectId,conversationId:app.selectedConversationId||app.selectedProjectId}),getRoles:()=>[...app.data.roles,...app.data.supervisorRoles],openMessage:async(scope,id)=>{mobilePanel('chat');await room.jumpMessage(scope,id);}});
-const nativeSessionUI=createNativeSessionUI({api,documentPreview,getData:()=>app.data,onModeChange:()=>{hideReadingPreview();app.view='workspace';render();},onPreview:()=>mobilePanel('chat'),onStateRefresh:()=>refreshState({quiet:true})});
+const nativeSessionUI=createNativeSessionUI({api,documentPreview,getData:()=>app.data,onModeChange:()=>{hideReadingPreview();app.view='workspace';render();void refreshState({quiet:true});},onPreview:()=>mobilePanel('chat'),onStateRefresh:()=>refreshState({quiet:true})});
 sessionProjectId=()=>nativeSessionUI.currentProjectId();
 initWorkspaceColumns();
 const mobilePanel = drawers.set;
@@ -334,11 +336,13 @@ function openSettings(value = 'general') {
   if (tab === 'prompts') renderPlatformPrompts();
   mobilePanel('chat');
   renderWorkspace();
+  if(nativeSessionUI.active())void refreshState({quiet:true});
 }
 
 function closeSettings() {
   app.view = 'workspace';
   renderWorkspace();
+  if(nativeSessionUI.active())void refreshState({quiet:true});
 }
 
 /** Chat cards and the history list share the detail dialog and do not require the user to create a separate task. */
@@ -434,7 +438,7 @@ async function api(path, options = {}) {
   const contentType = response.headers.get('content-type') || '';
   if (options.blob && response.ok) return response.blob();
   const body = contentType.includes('application/json')
-    ? await response.json().catch(() => ({}))
+    ? await response.json().catch(error => { if(options.signal?.aborted||response.ok)throw error;return {}; })
     : await response.text();
 
   if (!response.ok) {
@@ -557,9 +561,10 @@ function reconcileSelection() {
 /** Bound the whole read, including its body; a stalled request cannot hold the refresh lock or apply a late snapshot. Never retry writes here. */
 async function readState(path) {
   const controller = new AbortController();
+  app.stateController=controller;
   let timer;
   try {
-    return await Promise.race([
+    const result=await Promise.race([
       api(path, { signal: controller.signal }),
       new Promise((_, reject) => {
         timer = setTimeout(() => {
@@ -568,35 +573,42 @@ async function readState(path) {
         }, STATE_REQUEST_TIMEOUT);
       })
     ]);
-  } finally { clearTimeout(timer); }
+    controller.signal.throwIfAborted();return result;
+  } catch(error) {
+    if(controller.signal.aborted&&controller.signal.reason==='page-hidden'){const cancelled=new Error('Page hidden');cancelled.silent=true;throw cancelled;}
+    throw error;
+  } finally { clearTimeout(timer);if(app.stateController===controller)app.stateController=null; }
 }
+
+const currentStateView=()=>nativeSessionUI.active()&&app.view==='workspace'?'sessions':'workspace';
 
 /** Refresh authoritative state while keeping the user's current selection and unsubmitted forms. */
 async function refreshState({ quiet = false } = {}) {
+  if(quiet&&document.hidden)return;
   if (app.loadingState) {
     app.pendingStateRefresh = true;
     return new Promise(resolve => app.refreshWaiters.push(resolve));
   }
   app.loadingState = true;
-  const requestedProject=app.selectedProjectId,requestedConversation=app.selectedConversationId,generation=app.stateGeneration;
+  const requestedProject=app.selectedProjectId,requestedConversation=app.selectedConversationId,generation=app.stateGeneration,requestedView=currentStateView();let failed=false;
   if (!quiet) setConnection('Syncing Home…');
-  // The top bar shows a read the user is waiting for: the first load, a visible sync, or a chat whose state is not loaded yet.
-  // Background polls and live-update refreshes of the same chat stay silent.
-  const indicate=!quiet||app.stateCache?.projectId!==requestedProject||(app.stateCache?.conversationId||requestedProject)!==requestedConversation;
+  // Only an explicit foreground read shows the top bar. Background retries keep the last complete page visible.
+  const indicate=!quiet;
   const read=path=>indicate?trackLoading(readState(path)):readState(path);
   try {
-    const params=new URLSearchParams({view:'workspace'});
+    const params=new URLSearchParams({view:requestedView});
     if(requestedProject)params.set('projectId',requestedProject);
     if(requestedConversation)params.set('conversationId',requestedConversation);
-    if(app.stateCache?.projectId===requestedProject&&app.stateCache?.conversationId===requestedConversation)params.set('cursor',app.stateCache.cursor);
+    if(app.stateCacheView===requestedView&&app.stateCache?.projectId===requestedProject&&app.stateCache?.conversationId===requestedConversation)params.set('cursor',app.stateCache.cursor);
     let update=await read(`/api/state?${params}`);
-    if(generation!==app.stateGeneration||requestedProject!==app.selectedProjectId||requestedConversation!==app.selectedConversationId){app.pendingStateRefresh=true;return;}
+    if(generation!==app.stateGeneration||requestedView!==currentStateView()||requestedProject!==app.selectedProjectId||requestedConversation!==app.selectedConversationId){app.pendingStateRefresh=true;return;}
     try {app.stateCache=update.schema===1?applyStateUpdate(app.stateCache,update):{projectId:requestedProject||update.projects?.[0]?.id||null,cursor:null,state:update};}
     catch {
       params.delete('cursor');update=await read(`/api/state?${params}`);
-      if(generation!==app.stateGeneration||requestedProject!==app.selectedProjectId||requestedConversation!==app.selectedConversationId){app.pendingStateRefresh=true;return;}
+      if(generation!==app.stateGeneration||requestedView!==currentStateView()||requestedProject!==app.selectedProjectId||requestedConversation!==app.selectedConversationId){app.pendingStateRefresh=true;return;}
       app.stateCache=applyStateUpdate(null,update);
     }
+    app.stateCacheView=requestedView;
     const data=app.stateCache.state;
     app.selectedProjectId=app.stateCache.projectId;app.selectedConversationId=app.stateCache.conversationId||app.selectedProjectId;
     app.data = {
@@ -644,8 +656,11 @@ async function refreshState({ quiet = false } = {}) {
       mode: t(app.token ? 'Token auth · 10 s polling' : app.pollTimer ? '10 s polling' : 'Live updates')
     }), 'connected');
   } catch (error) {
-    // Recover with a full snapshot after a failed read instead of extending an uncertain cursor.
-    app.stateCache = null;
+    if(error.silent)return;
+    if(generation!==app.stateGeneration||requestedView!==currentStateView()||requestedProject!==app.selectedProjectId||requestedConversation!==app.selectedConversationId){app.pendingStateRefresh=true;return;}
+    failed=true;
+    // A timed-out response never replaced the last complete baseline. Reuse its cursor, instead of downloading the archive again.
+    if([401,403].includes(error.status)){app.stateCache=null;app.stateCacheView=null;}
     // Placeholders from the page shell stay only while a first load is still expected to arrive.
     if (!app.lastStateAt) for (const node of document.querySelectorAll('#project-list > .list-skeleton, #chat-feed > .chat-skeleton')) node.remove();
     setError(error.message);
@@ -658,7 +673,7 @@ async function refreshState({ quiet = false } = {}) {
     for (const resolve of app.refreshWaiters.splice(0)) resolve();
     if (app.pendingStateRefresh) {
       app.pendingStateRefresh = false;
-      void refreshState({ quiet: true });
+      if(!failed)void refreshState({ quiet: true });
     }
   }
 }
@@ -2150,7 +2165,9 @@ function startPolling() {
 let lastActivationRefresh=0;
 function refreshAfterActivation() {
   // Focus, pageshow, visibility and SSE open often arrive together. Reuse an in-flight state read and keep the body.
-  if (document.visibilityState === 'hidden'||app.loadingState||Date.now()-lastActivationRefresh<1000) return;
+  if(document.visibilityState==='hidden'){app.stateController?.abort('page-hidden');return;}
+  if(app.loadingState){if(app.stateController?.signal.reason==='page-hidden')app.pendingStateRefresh=true;return;}
+  if(Date.now()-lastActivationRefresh<1000)return;
   lastActivationRefresh=Date.now();
   void refreshState({quiet:true});
 }

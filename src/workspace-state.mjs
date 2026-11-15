@@ -84,14 +84,23 @@ export function workspaceState(snapshot,requestedProjectId,requestedConversation
 const keyed=value=>Array.isArray(value)&&value.every(v=>v&&typeof v.id==='string')&&new Set(value.map(v=>v.id)).size===value.length;
 const encode=value=>JSON.stringify(value);
 
+/** Native chat needs ownership identities, not the unrelated group-chat task archive. Full details remain on their existing routes. */
+export function nativeWorkspaceState(state) {
+  const pick=(value,fields)=>Object.fromEntries(fields.filter(field=>Object.hasOwn(value,field)).map(field=>[field,value[field]]));
+  return {...state,runs:state.runs.map(run=>({...pick(run,['id','projectId','conversationId','nodeId','roleSessionId','status']),
+    ...(run.nativeSession?{nativeSession:pick(run.nativeSession,['runtime','id'])}:{})})),
+    tasks:[],requests:[],runReports:[],scheduledOccurrences:[],executionPlans:[],discussionThreads:[],discussionDeliveries:[],runAlerts:[],cliRecoveries:[]};
+}
+
 /** The cursor only caches a rebuildable UI projection; on restart, eviction, or project switch the snapshot is restored, and message persistence is unaffected. */
 export class WorkspaceStateFeed {
   constructor({maxScopes=16,history=4}={}) {this.epoch=randomUUID();this.scopes=new Map();this.maxScopes=maxScopes;this.history=history;}
-  read(snapshot,projectId,cursor,conversationId) {
+  read(snapshot,projectId,cursor,conversationId,view='workspace') {
     const selected=snapshot.projects.find(p=>p.id===projectId),resolved=selected?.id||snapshot.projects[0]?.id||null;
-    const key=JSON.stringify([resolved,selected?(conversationId||resolved):resolved]),scope=this.scopes.get(key);
+    const key=JSON.stringify([resolved,selected?(conversationId||resolved):resolved,view]),scope=this.scopes.get(key);
     const source=snapshot[WORKSPACE_SUMMARY],reuse=source&&scope?.source===source;
     const projection=workspaceState(snapshot,projectId,conversationId,reuse?scope.state:null);
+    if(view==='sessions')projection.state=nativeWorkspaceState(projection.state);
     const encoded={},hashes={},state={},stable=new Set(['runs','tasks','requests','runReports']);
     for(const [name,value] of Object.entries(projection.state)){
       encoded[name]=reuse&&stable.has(name)?scope.encoded[name]:encode(value);

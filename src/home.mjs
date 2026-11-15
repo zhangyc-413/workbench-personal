@@ -771,9 +771,9 @@ const server = http.createServer(async (req, res) => {
       }
       if (pathname === '/api/state' && req.method === 'GET') {
         await externalFileSync.refresh(db.list('projects').map(p=>p.id));
-        const workspace=url.searchParams.get('view')==='workspace';
+        const stateView=url.searchParams.get('view'),workspace=['workspace','sessions'].includes(stateView);
         const state=snapshot(workspace?workspaceScope(db,url.searchParams.get('projectId')):null);
-        const view=workspace?workspaceFeed.read(state,url.searchParams.get('projectId'),url.searchParams.get('cursor'),url.searchParams.get('conversationId')):state;
+        const view=workspace?workspaceFeed.read(state,url.searchParams.get('projectId'),url.searchParams.get('cursor'),url.searchParams.get('conversationId'),stateView):state;
         return await sendBufferedResponse(req,res,Buffer.from(JSON.stringify(view)),{ 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store' });
       }
       if((pathname.includes('native-')||/^\/api\/agent\/side-asks\/[^/]+\/[^/]+$/.test(pathname)||/^\/api\/projects\/[^/]+\/(?:messages|runs)\/[^/]+\/side$/.test(pathname))&&await nativeTurns.http(req,res,{pathname,url,json,body}))return;
