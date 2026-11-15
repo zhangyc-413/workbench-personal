@@ -55,7 +55,7 @@ export async function supervise(c){
   for(const child of children){child.once('exit',()=>void finish());child.once('error',()=>void finish());}
   for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>void finish());
 }
-export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascript',['-e','POSIX path of (choose folder with prompt "选择要与 Workbench 同步的专用文件夹")']),openWebsite=url=>run('/usr/bin/open',[url])}={}){
+export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascript',['-e','activate','-e','POSIX path of (choose folder with prompt "选择要与 Workbench 同步的专用文件夹")'],{timeout:300000}),openWebsite=url=>run('/usr/bin/open',[url])}={}){
   if(process.platform!=='darwin')throw Error('此安装助手仅支持 Mac');
   const ticket=JSON.parse(await readFile(ticketPath,'utf8'));
   if(!/^[a-f0-9]{24}$/.test(ticket.id)||new URL(ticket.origin).protocol!=='https:')throw Error('无效的连接包');
@@ -69,7 +69,7 @@ export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascri
   let child;
   try{
     if(!c){
-      console.log('请选择要同步的专用文件夹；请勿选择已经由其他同步软件管理的目录。');
+      console.log('[2/3] 请选择要同步的专用文件夹；请勿选择已经由其他同步软件管理的目录。');
       const chosen=await chooseFolder();
       const folder=await validateFolder(chosen,base);
       c={id:ticket.id,origin:ticket.origin,dir,folder,syncHome:join(dir,'syncthing'),syncthing:join(dir,'syncthing-bin'),guiPort:await freePort(),listenPort:await freePort(),tunnelPort:await freePort(),apiKey:randomBytes(32).toString('hex')};
@@ -77,16 +77,15 @@ export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascri
       await save(join(dir,'connection.json'),c);
     }
     try{await stat(c.syncthing);}catch(e){
-      if(e.code!=='ENOENT')throw e;console.log('正在下载并校验文件同步组件…');
-      const arch=process.arch==='arm64'?'arm64':'amd64',archive=join(dir,'syncthing.zip');
-      await run('/usr/bin/curl',['-fLsS','--proto','=https','--tlsv1.2','--retry','3','--max-time','600',`https://github.com/syncthing/syncthing/releases/download/v1.30.0/syncthing-macos-${arch}-v1.30.0.zip`,'-o',archive],{timeout:620000});
+      if(e.code!=='ENOENT')throw e;console.log('正在校验连接包中的同步组件…');
+      const arch=process.arch==='arm64'?'arm64':'amd64',archive=join(dirname(ticketPath),'components','syncthing.zip');
       if(sha(await readFile(archive))!==ticket.assets[process.arch].sync)throw Error('同步组件校验失败');
       await run('/usr/bin/ditto',['-x','-k',archive,join(dir,'download')]);
       await copyFile(join(dir,'download',`syncthing-macos-${arch}-v1.30.0`,'syncthing'),c.syncthing);
       await (await import('node:fs/promises')).chmod(c.syncthing,0o700);
-      await rm(join(dir,'download'),{recursive:true,force:true});await rm(archive);
+      await rm(join(dir,'download'),{recursive:true,force:true});
     }
-    console.log('正在生成本机密钥并连接服务器…');
+    console.log('[3/3] 正在建立 SSH 连接并配置自动同步…');
     const publicKey=await key(dir,'sync_ed25519'),maintenanceKey=ticket.maintenance?await key(dir,'dev_ed25519'):undefined;
     try{await stat(join(c.syncHome,'config.xml'));}catch(e){if(e.code!=='ENOENT')throw e;await prepareLocal(c);}
     child=startSync(c);child.on('error',()=>{});const status=await waitSync(c);

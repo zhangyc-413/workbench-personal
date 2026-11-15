@@ -1,7 +1,7 @@
 import {readFile,writeFile,mkdir,rename,realpath,stat} from 'node:fs/promises';
 import {join,resolve,sep} from 'node:path';
 import {randomBytes,createHash} from 'node:crypto';
-import {computerLinkBundle} from './computer-link-bundle.mjs';
+import {computerLinkAssets,streamComputerLinkBundle} from './computer-link-bundle.mjs';
 
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -19,6 +19,7 @@ export class ComputerLink {
     if(u.protocol!=='https:'||u.origin!==c.publicOrigin||s.protocol!=='http:'||s.hostname!=='127.0.0.1'||s.pathname!=='/'||s.username||s.password||s.search||s.hash)throw Error('Invalid computer link endpoints');
     if(!/^[a-zA-Z0-9.-]+$/.test(c.sshHost)||!Number.isInteger(c.sshPort)||c.sshPort<1||c.sshPort>65535||!Number.isInteger(c.syncPort)||c.syncPort<1||c.syncPort>65535||!/^\w[\w-]*$/.test(c.sshUser)||!/^ssh-ed25519 [A-Za-z0-9+/=]+$/.test(c.hostKey))throw Error('Invalid computer link SSH configuration');
     for(const key of ['folderRoot','authorizedKeys','syncthingConfig'])if(!c[key]?.startsWith('/'))throw Error('Computer link paths must be absolute');
+    if(c.runtimeCache&&!c.runtimeCache.startsWith('/'))throw Error('Runtime cache path must be absolute');
     if(c.maintenanceUser&&(!/^\w[\w-]*$/.test(c.maintenanceUser)||!c.maintenanceAuthorizedKeys?.startsWith('/')))throw Error('Invalid maintenance configuration');
     await mkdir(this.dir,{recursive:true,mode:0o700});
     try{this.rows=JSON.parse(await readFile(join(this.dir,'devices.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
@@ -41,17 +42,25 @@ export class ComputerLink {
       await atomic(this.config.maintenanceAuthorizedKeys,dev.join('\n')+'\n');
     }
   }
-  async create({maintenance=false}={}){
+  async create({maintenance=false,arch='arm64'}={}){
     if(!this.config)throw fail('管理员尚未配置连接助手',503);
+    if(!['arm64','x64'].includes(arch))throw fail('请选择 Mac 芯片类型');
+    await computerLinkAssets(this.config.runtimeCache,arch).catch(()=>{throw fail('服务器尚未备好完整连接包，请联系管理员准备组件',503);});
     if(this.rows.filter(r=>r.status==='pending'&&r.expiresAt>this.now()).length>=5)throw fail('已有多个待连接下载包，请先取消不用的连接');
     if(this.rows.filter(r=>r.status!=='revoked'&&r.status!=='pending').length>=32)throw fail('连接数量已达到上限');
     const id=randomBytes(12).toString('hex'),token=randomBytes(32).toString('base64url');
     if(maintenance&&(!this.config.maintenanceAuthorizedKeys||!this.config.maintenanceUser))throw fail('本机维护尚未配置');
-    const row={id,tokenHash:hash(token),createdAt:this.now(),expiresAt:this.now()+30*60*1000,status:'pending',folderId:'wb-link-'+id,maintenance:maintenance===true};
+    const row={id,tokenHash:hash(token),createdAt:this.now(),expiresAt:this.now()+30*60*1000,status:'pending',folderId:'wb-link-'+id,maintenance:maintenance===true,arch};
     this.rows=this.rows.filter(r=>r.status!=='pending'||r.expiresAt>this.now());this.rows.push(row);await this.save();
-    const c=this.config;
-    const archive=await computerLinkBundle({id,token,origin:c.publicOrigin,expiresAt:row.expiresAt,ignores,maintenance:row.maintenance});
-    return {id,expiresAt:row.expiresAt,archive:archive.toString('base64')};
+    return {id,expiresAt:row.expiresAt,downloadToken:token,arch};
+  }
+  async download(id,token,res){
+    const r=this.rows.find(row=>row.id===id&&row.tokenHash===hash(token));
+    if(!r||r.status!=='pending'||r.expiresAt<this.now())throw fail('连接包已失效，请重新下载',401);
+    const runtimes=await computerLinkAssets(this.config.runtimeCache,r.arch);
+    // Revocation may run during async asset validation. Recheck before releasing the package.
+    if(r.status!=='pending'||r.expiresAt<this.now())throw fail('连接包已失效，请重新下载',401);
+    await streamComputerLinkBundle({id:r.id,token,origin:this.config.publicOrigin,expiresAt:r.expiresAt,ignores,maintenance:r.maintenance,arch:r.arch},runtimes,res);
   }
   async claim(token,b){
     const r=this.rows.find(r=>r.tokenHash===hash(token));
@@ -113,8 +122,9 @@ export class ComputerLink {
       }
       if(path==='/api/computer-link'&&req.method==='GET')send(res,await this.status());
       else if(path==='/api/computer-link'&&req.method==='POST'){const b=await input(req);send(res,await this.serial(()=>this.create(b)));}
+      else if(/^\/api\/computer-link\/[a-f0-9]{24}\/download$/.test(path)&&req.method==='POST'){const b=await input(req);if(typeof b.token!=='string')throw fail('下载令牌无效',401);await this.download(path.split('/')[3],b.token,res);}
       else if(/^\/api\/computer-link\/[a-f0-9]{24}$/.test(path)&&req.method==='DELETE')send(res,await this.serial(()=>this.revoke(path.split('/').at(-1))));
       else send(res,{error:'接口不存在'},404);
-    }catch(e){send(res,{error:e.status&&e.status<500?e.message:'连接服务暂不可用，请稍后重试'},e.status&&e.status<500?e.status:503);}return true;
+    }catch(e){if(res.headersSent)res.destroy();else send(res,{error:e.status?e.message:'连接服务暂不可用，请稍后重试'},e.status||503);}return true;
   }
 }

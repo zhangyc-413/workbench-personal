@@ -2,7 +2,7 @@
 
 Implemented for macOS (Apple Silicon and Intel). Home must run on the prepared Linux server. This is an explicit installation flow, not silent browser access to a computer.
 
-In the sidebar choose **连接我的电脑**, download the ZIP, extract it and open `连接我的电脑.command`. The first run asks for a dedicated folder. The helper installs user-scoped, checksum-pinned Node and Syncthing components, generates a local SSH key, redeems a 30-minute single-device enrollment and registers a login LaunchAgent. No sudo or Claude login is needed on the Mac. macOS may require Finder's Open confirmation. Windows/Linux desktop installers are not included.
+In the sidebar choose **连接我的电脑**, choose Apple Silicon or Intel, download the complete ZIP, extract it and open `连接我的电脑.command`. The first run asks for a dedicated folder. The page displays download progress and offers cancellation; stalled transfers fail after 30 seconds without progress. The helper installs bundled, user-scoped, checksum-pinned Node and Syncthing components without downloading software after launch, generates a local SSH key, redeems a 30-minute single-device enrollment and registers a login LaunchAgent. No sudo or Claude login is needed on the Mac. macOS may require Finder's Open confirmation. Windows/Linux desktop installers are not included.
 
 The server creates a new, independent folder under its configured sharing root. Its path appears in the dialog and can be selected when creating a project. Existing project bindings and synchronization pairs are never changed. The local folder must not already be managed by another synchronization service. The helper rejects home/system/credential folders and overlaps with its own existing pairs; it cannot enumerate every third-party synchronization service.
 
@@ -25,6 +25,7 @@ An administrator provisions Syncthing, an SSH account restricted to forwarding, 
 ```json
 {
   "publicOrigin": "https://xxxxx",
+  "runtimeCache": "/xxxxx/computer-connect-runtimes",
   "sshHost": "xxxxx",
   "sshPort": 22,
   "sshUser": "xxxxx",
@@ -46,6 +47,8 @@ An administrator provisions Syncthing, an SSH account restricted to forwarding, 
   }
 }
 ```
+
+Before enabling downloads, run `node bin/prepare-computer-connect.mjs /xxxxx/computer-connect-runtimes` on the server. This fetches the fixed official Node 22.22.1 and Syncthing 1.30.0 Mac releases for both architectures and verifies pinned SHA256 hashes before placing them in the private cache. Home requires read access to that directory. Failed preparation leaves downloads unavailable; no browser request starts an upstream download. The complete ZIP includes upstream license files within the runtime archives.
 
 Omit maintenance fields if no maintenance access is intended. Home needs write access to the **dedicated** key files and sharing root, and read access to Syncthing's private XML. Never point these key files at an existing user's ordinary authorized_keys: Home rewrites only its own enrollment set.
 

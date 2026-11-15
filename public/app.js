@@ -438,7 +438,13 @@ async function api(path, options = {}) {
   }
 
   const contentType = response.headers.get('content-type') || '';
-  if (options.blob && response.ok) return response.blob();
+  if (options.blob && response.ok) {
+    if(!options.onDownloadProgress)return response.blob();
+    const reader=response.body.getReader(),parts=[],total=Number(response.headers.get('Content-Length'))||0;let received=0;
+    try{for(;;){const {done,value}=await reader.read();if(done)break;parts.push(value);received+=value.length;options.onDownloadProgress(received,total);}}
+    finally{reader.releaseLock();}
+    return new Blob(parts,{type:contentType});
+  }
   const body = contentType.includes('application/json')
     ? await response.json().catch(error => { if(options.signal?.aborted||response.ok)throw error;return {}; })
     : await response.text();
