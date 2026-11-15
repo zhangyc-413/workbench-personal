@@ -4464,7 +4464,7 @@ dialog.media-lightbox .media-nav-next { right: 10px; }
 /* Computer connection is an explicit setup action, separate from chat refresh. */
 .computer-link-entry{margin:8px 12px;flex-shrink:0;}
 body[data-project-sidebar="collapsed"] .computer-link-entry{display:none;}
-.computer-link-dialog{max-width:680px;width:calc(100vw - 32px);max-height:85dvh;overflow:auto;}
+.computer-link-dialog{width:min(680px,calc(100vw - 32px));max-height:85dvh;overflow:auto;}
 .computer-link-dialog ol{padding-left:24px;line-height:1.9;}
 .computer-link-option{display:flex;align-items:center;gap:10px;margin-top:18px;}
 .computer-link-option input{width:auto;}
@@ -4473,3 +4473,6 @@ body[data-project-sidebar="collapsed"] .computer-link-entry{display:none;}
 .computer-link-device p{margin:0;}
 .computer-link-device code{white-space:normal;overflow-wrap:anywhere;font-size:12px;}
 .computer-link-device button{justify-self:start;}
+
+.computer-link-actions{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 12px;}
+.computer-link-dialog .form-feedback:empty{display:none;}

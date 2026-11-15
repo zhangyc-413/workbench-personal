@@ -6,7 +6,7 @@ export function computerLinkUI({api}){
     <ol><li>下载并解压连接助手（Mac，Apple 芯片 / Intel）。</li><li>双击「连接我的电脑.command」，按提示选择专用文件夹。</li><li>回到这里查看连接状态。无需填写 SSH 参数或重新登录 Claude。</li></ol>
     <label class="computer-link-option"><input type="checkbox" name="maintenance">允许本机维护工作台</label>
     <p class="workspace-note">同时提供独立源码目录及服务器维护 SSH 权限，方便本地 Codex 等助手修改功能。修改后测试、发布才会更新线上。</p>
-    <div class="form-actions"><button type="button" class="primary" data-action="download">下载连接助手</button><button type="button" class="secondary" data-action="refresh">刷新连接状态</button></div>
+    <div class="computer-link-actions"><button type="button" class="primary" data-action="download">下载连接助手</button><button type="button" class="secondary" data-action="refresh">刷新连接状态</button></div>
     <p role="status" class="form-feedback"></p><div class="computer-link-devices"></div>
     <p class="workspace-note">下载包 30 分钟有效，仅用于自己的电脑。关机期间暂停同步，登录后续传；修改和删除都会同步，冲突保留副本。首次可能需要在 Finder 中右键选择“打开”。</p>`;
   document.body.append(dialog);const feedback=dialog.querySelector('[role=status]'),download=dialog.querySelector('[data-action=download]'),list=dialog.querySelector('.computer-link-devices'),maintenance=dialog.querySelector('input');
