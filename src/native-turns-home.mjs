@@ -72,14 +72,16 @@ export function createHomeNativeTurns({db,dataDir,send,online,change,busy=()=>fa
       leases.closed(nodeId,{leaseId:previous.leaseId,runtime,sessionId});
       db.put('nativeTakeovers',{...previous,status:'closed',reason:'refreshed',updatedAt:new Date().toISOString()});change();return;
     }
-    if(reply.closing||previous.status==='closing')throw Error('\u539f\u4f1a\u8bdd\u8fdb\u7a0b\u4ecd\u5728\u9000\u51fa\uff0c\u9000\u51fa\u540e\u8bf7\u91cd\u8bd5');
+    // Restart recovery records uncertainty, not a shutdown request. Only the exact, verified idle resident may reopen it.
+    const restartIdle=previous.status==='closing'&&previous.reason==='home_restart'&&!reply.activeIds.length&&db.get('terminalSessions',previous.leaseId)?.status!=='stopping';
+    if(reply.closing||previous.status==='closing'&&!restartIdle)throw Error('\u539f\u4f1a\u8bdd\u8fdb\u7a0b\u4ecd\u5728\u9000\u51fa\uff0c\u9000\u51fa\u540e\u8bf7\u91cd\u8bd5');
     if(reply.processState!=='active'||!reply.reusable){
       if(reply.activeIds.length)return; // The Worker is still preparing this very turn.
       throw Error('\u539f\u4f1a\u8bdd\u8fdb\u7a0b\u5c1a\u672a\u786e\u8ba4\u53ef\u590d\u7528\u6216\u5df2\u9000\u51fa\uff0c\u8bf7\u7a0d\u540e\u91cd\u8bd5');
     }
     const timestamp=new Date().toISOString();
     for(const turn of current)if(!reply.activeIds.includes(turn.id))db.put('nativeTurns',{...turn,status:'interrupted',phase:null,error:'\u72b6\u6001\u6838\u5bf9\u786e\u8ba4\u4e0a\u4e00\u8f6e\u5df2\u7ed3\u675f',endedAt:timestamp,updatedAt:timestamp});
-    db.put('nativeTakeovers',{...previous,status:'open',updatedAt:timestamp});
+    db.put('nativeTakeovers',{...previous,status:'open',reason:null,updatedAt:timestamp});
     const lease=db.get('terminalSessions',previous.leaseId);db.put('terminalSessions',{...lease,status:'active',processState:'active',lastCheckedAt:timestamp});change();
   }
   // Side questions: memory only; their files come from the same per-device attachment store as takeover turns.
@@ -158,5 +160,7 @@ export function createHomeNativeTurns({db,dataDir,send,online,change,busy=()=>fa
   }
   return {turns,http,switches,gitCredentialFor:(nodeId,runtime,sessionId)=>gitCredential(turns.settings(nodeId,runtime,sessionId),{nodeId,runtime,sessionId}),
     message:(nodeId,m)=>['side_ask_event','side_ask_closed'].includes(m.type)?sideAsks.receive(nodeId,m):['native_turn_event','native_takeover_closed','native_takeover_lease'].includes(m.type)?(turns.receive(nodeId,m),true):false,sideAsks,
-    disconnected:nodeId=>{turns.disconnected(nodeId);sideAsks.disconnected(nodeId);},reconnected:(nodeId,turnIds)=>turns.reconnected(nodeId,turnIds)};
+    disconnected:nodeId=>{turns.disconnected(nodeId);sideAsks.disconnected(nodeId);},reconnected:(nodeId,turnIds)=>turns.reconnected(nodeId,turnIds),
+    // Run once after Worker readiness and lease reconciliation; failures keep ownership fenced until an explicit send checks again.
+    ready:nodeId=>Promise.allSettled(db.list('nativeTakeovers').filter(p=>p.nodeId===nodeId&&p.status==='closing'&&p.reason==='home_restart').map(p=>refresh(nodeId,p.runtime,p.sessionId)))};
 }

@@ -346,7 +346,7 @@ export class NativeTurnsHome{
   this.cancelWaiting(nodeId,runtime,sessionId,'Takeover ended before this message was sent');
   if(this.leases){
    if(!current||!this.process(nodeId,runtime,sessionId))return {released:true};
-   this.db.put('nativeTakeovers',{...current,status:'closing',updatedAt:now()});
+   this.db.put('nativeTakeovers',{...current,status:'closing',reason:'released',updatedAt:now()});
    this.leases.stopping(current.leaseId);
    if(this.online(nodeId))this.send(nodeId,{type:'native_takeover_release',runtime,sessionId,leaseId:current.leaseId});
    this.change();return {released:false,pending:true};
