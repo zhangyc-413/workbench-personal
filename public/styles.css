@@ -4460,3 +4460,16 @@ dialog.media-lightbox .media-nav-next { right: 10px; }
   body select:not([multiple]):not([size]), body select[size="1"] { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b1b1b1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
   body select.wb-select-open:not([multiple]) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b1b1b1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 15 6-6 6 6'/%3E%3C/svg%3E"); }
 }
+
+/* Computer connection is an explicit setup action, separate from chat refresh. */
+.computer-link-entry{margin:8px 12px;flex-shrink:0;}
+body[data-project-sidebar="collapsed"] .computer-link-entry{display:none;}
+.computer-link-dialog{max-width:680px;width:calc(100vw - 32px);max-height:85dvh;overflow:auto;}
+.computer-link-dialog ol{padding-left:24px;line-height:1.9;}
+.computer-link-option{display:flex;align-items:center;gap:10px;margin-top:18px;}
+.computer-link-option input{width:auto;}
+.computer-link-devices{display:grid;gap:12px;margin-top:18px;}
+.computer-link-device{padding:16px;border:1px solid var(--line);border-radius:12px;display:grid;gap:8px;}
+.computer-link-device p{margin:0;}
+.computer-link-device code{white-space:normal;overflow-wrap:anywhere;font-size:12px;}
+.computer-link-device button{justify-self:start;}

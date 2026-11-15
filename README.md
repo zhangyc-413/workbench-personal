@@ -8,11 +8,13 @@ A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-
 
 ### What this fork adds
 
+- A Mac **Connect my computer** flow: download a local helper, choose a folder, and automatically configure dedicated SSH and Syncthing. Optional local maintenance includes source and a guarded deployment helper. [Setup and boundaries](docs/COMPUTER-CONNECT.md).
+
 - Neutral charcoal dark mode that follows the device's light/dark preference.
 - Mobile keyboard layout adjustments, including iPhone viewport panning.
 - A separate working folder for **every new native session**. Same titles still create different folders; retries reuse the same folder; existing sessions retain their history and directory.
 - New browser sessions on a connected cloud Worker without requiring an extra SSH device registration. iTerm launches still require SSH.
-- An optional **read-only Syncthing status display** for an existing, explicitly configured two-way folder pair. Installing this fork does not start or configure synchronization.
+- An optional **read-only Syncthing status display** for an existing, explicitly configured two-way folder pair. Installing this fork alone does not start synchronization; the separate computer-connection flow configures only a newly authorized folder pair.
 - Linux Codex DNS resolver symlink access within its configured project permission profile.
 - “Project files” instead of “0 code repositories” when a project has no registered Git repositories.
 - Indexed native-session ownership checks keep scheduling responsive as task history grows.

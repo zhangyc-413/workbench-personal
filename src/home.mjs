@@ -57,6 +57,7 @@ import {folderAccessFor,nativeFolderAccess,FolderPreparations,runOpenablePath} f
 import {prepareIndependentNativeSessionFolder} from './folders.mjs';
 import { CredentialStore, Hosting } from './hosting.mjs';
 import { ProjectAdmin } from './project-admin.mjs';
+import {ComputerLink} from './computer-link.mjs';
 import { DeviceAdmin } from './device-admin.mjs';
 import { PlatformAssistant } from './platform-assistant.mjs';
 import { TokenUsage, createTokenUsageBackgroundCollector } from './token-usage.mjs';
@@ -86,6 +87,7 @@ const base = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const softwareVersion=await readSoftwareVersion(base);
 const softwareUpdates=new SoftwareUpdates({repository:softwareVersion.repository});
 const data = resolve(process.env.DATA_DIR || join(base, '.data/home'));
+const computerLink=await new ComputerLink({data}).load();
 const externalFileSync=await new ExternalFileSync({configFile:join(data,'external-file-sync.json')}).load();
 initLanguage(data); // load the saved language (data/language.json) before any text is produced
 const host = process.env.HOST || '127.0.0.1';
@@ -502,6 +504,7 @@ async function body(req) {
 function pageFileMap() {
   const files = { '/': 'index.html', '/platform-admin.js':'platform-admin.js', '/project-space.js':'project-space.js', '/token-usage.js':'token-usage.js', '/app-icon.png': 'app-icon.png', '/agent-codex.png':'agent-codex.png', '/agent-antigravity.png':'agent-antigravity.png', '/app.js': 'app.js', '/run-log-data.js':'run-log-data.js', '/room.js': 'room.js', '/markdown.js':'markdown.js', '/project-settings.js': 'project-settings.js', '/role-icons.js': 'role-icons.js', '/settings-page.js': 'settings-page.js', '/supervisor-settings.js':'supervisor-settings.js', '/elapsed.js':'elapsed.js', '/send-state.js':'send-state.js', '/permission-scope.js':'permission-scope.js', '/project-setup.js':'project-setup.js', '/styles.css':'styles.css' };
   Object.assign(files,{'/history-view.js':'history-view.js','/scheduled-jobs.js':'scheduled-jobs.js','/git-version.js':'git-version.js','/plan-dock.js':'plan-dock.js','/document.html':'document.html','/document.js':'document.js','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/app-icon-192.png':'app-icon-192.png'});
+  files['/computer-link.js']='computer-link.js';
   files['/workspace-inspector.js']='workspace-inspector.js';
   files['/concurrent-writes.js']='concurrent-writes.js';
   files['/platform-memory.js']='platform-memory.js';
@@ -682,6 +685,7 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://localhost');
     const pathname = decodeURIComponent(url.pathname);
+    if(pathname==='/api/computer-link/claim'&&await computerLink.handle(req,res,pathname,{client:true}))return;
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     if(pathname.startsWith('/api/worker/source-sync/')&&await sourceSync.workerHttp(req,res,pathname))return;
@@ -701,6 +705,7 @@ const server = http.createServer(async (req, res) => {
         if (!workerOk) return json(res, { error: tr('home.agentToolsOnlyAllowedThrough') }, 401);
       } else if (apiToken && !userOk) return json(res, { error: tr('home.accessTokenRequired') }, 401);
       if (req.headers.origin && new URL(req.headers.origin).host !== req.headers.host) return json(res, { error: tr('home.crossSiteRequestRejected') }, 403);
+      if(await computerLink.handle(req,res,pathname))return;
       if(await remoteAccessSettings.handle(req,res,pathname))return;
       if(pathname==='/api/platform/version'&&req.method==='GET')return json(res,{instances:softwareInventory()});
       // The complete setup guide from docs/, for reading on the page or copying to an AI assistant; no state involved.

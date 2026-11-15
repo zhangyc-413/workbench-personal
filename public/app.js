@@ -32,6 +32,7 @@ import { activateSettingsTab, normalizeSettingsTab, settingsView, initProjectSet
 import { supervisorSettings } from './supervisor-settings.js';
 import { roleTemplatesUI } from './role-templates.js';
 import { rememberSupervisorChoice, projectSetupUI } from './project-setup.js';
+import {computerLinkUI} from './computer-link.js';
 import { deviceEntries, platformAdminUI } from './platform-admin.js';
 import { projectSpaceUI } from './project-space.js';
 import { platformMemoryUI } from './platform-memory.js';
@@ -174,6 +175,7 @@ const projectsUI = projectSettings({ api, getData: () => app.data, getProject: g
 const supervisorsUI = supervisorSettings({ api, getData: () => app.data, getProject: getCurrentProject, refreshState, create,openTask });
 const roleTemplates = roleTemplatesUI({ api, getData: () => app.data, refreshState, create });
 const setupUI = projectSetupUI({ api, getData: () => app.data, getProject: getCurrentProject, refreshState, create, setError,openFolder:projectsUI.openFolder });
+computerLinkUI({api});
 const platformUI = platformAdminUI({api,getData:()=>app.data,refreshState,create});
 const spacesUI = projectSpaceUI({api,getData:()=>app.data,getProject:getCurrentProject,refreshState,create,openFolder:(...args)=>projectsUI.openFolder(...args)});
 const memoryUI = platformMemoryUI({api,getData:()=>app.data,create,formatTime,visible:()=>app.view==='settings'&&app.settingsTab==='memory'});
