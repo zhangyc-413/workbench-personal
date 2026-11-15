@@ -17,6 +17,7 @@ const STATIC = [
   '/side-preview.js',
   '/history-prompt.js',
   '/history-cache.js',
+  '/reading-preview.js',
   '/data-settings.js',
   '/', '/styles.css', '/delivery-summary.js', '/app.js', '/native-sessions.js', '/list-order.js', '/select-controls.js', '/mention-input.js', '/context-usage.js', '/manifest.webmanifest', '/app-icon.png', '/app-icon-192.png', '/retired-commands.js',
   '/platform-admin.js', '/configuration-information.js', '/project-space.js', '/platform-memory.js', '/token-usage.js', '/run-log-data.js', '/room.js',

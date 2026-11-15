@@ -4,6 +4,8 @@
  * Brand and product names (Codex, Gitee, GitHub, Windows App, iTerm, ...) are intentionally left as they are inside sentences.
  */
 export default {
+  'Last viewed messages':'上次阅读的消息',
+  'Saved messages · checking for updates. Sending becomes available after connecting.':'上次的内容 · 正在检查更新，连接后即可发送消息。',
   "This project uses external file sync. Manage the existing service before switching sync engines.": "本项目已使用外部同步。切换同步方式前，请先处理现有同步服务。",
   "Built-in sync stays off to avoid two services changing the same files.": "工作台内置同步保持关闭，避免两套服务重复处理文件。",
   "Sync continues with the page closed. A sleeping or disconnected computer catches up after reconnecting.": "关闭网页不影响同步；电脑睡眠或断网后，恢复连接时继续同步。",

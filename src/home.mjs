@@ -514,6 +514,7 @@ function pageFileMap() {
   files['/quota-state.js']='quota-state.js';
   files['/chat-card-state.js']='chat-card-state.js';
   files['/state-data.js']='state-data.js';
+  files['/reading-preview.js']='reading-preview.js';
   files['/group-conversations.js']='group-conversations.js';
   files['/project-team-copy.js']='project-team-copy.js';
   files['/execution-progress.js']='execution-progress.js';

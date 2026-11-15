@@ -50,7 +50,9 @@ async function transaction(mode,work){
 
 /** The saved page for a session key, or null. */
 export async function cachedHistory(key){
-  try{return await transaction('readonly',(store,done)=>{const get=store.get(key);get.onsuccess=()=>done(get.result?.page||null);});}catch{return null;}
+  // A browser holding an IndexedDB upgrade lock must not hold up the live history request.
+  let timer;
+  try{return await Promise.race([transaction('readonly',(store,done)=>{const get=store.get(key);get.onsuccess=()=>done(get.result?.page||null);}),new Promise(resolve=>{timer=setTimeout(()=>resolve(null),350);})]);}catch{return null;}finally{clearTimeout(timer);}
 }
 /** Save a page (a fresh latest page, or the saved one with appended rows); oversize pages retain a reachable recent window. */
 export async function saveHistory(key,page){

@@ -1,3 +1,4 @@
+import {saveReadingPreview,showReadingPreview,hideReadingPreview,readingPreviewReady} from './reading-preview.js';
 import { trackLoading } from './load-bar.js';
 import {copyText,bindCopyFeedback} from './role-icons.js';
 import {t as globalT,dateLocale,getLanguage} from './i18n.js';
@@ -512,7 +513,7 @@ export function createNativeSessionUI({api,documentPreview,getData,onModeChange,
    await Promise.all(jobs.map(async job=>{try{
     const result=await api(`${endpoint(job.nodeId)}?${new URLSearchParams({runtime:job.runtime,scope:job.scope,cached:'1'})}`);
     if(ticket!==version||!active()||result.cached!==true)return;
-    previous.push(...(result.items||[]).map(item=>({...item,nodeId:job.nodeId})));items=ordered(previous);updateLineage();renderList();
+    previous.push(...(result.items||[]).map(item=>({...item,nodeId:job.nodeId})));items=ordered(previous);updateLineage();renderList();autoSelect();
    }catch{/* Worker refresh below reports authoritative errors; existing rows stay visible. */}}));
    if(ticket!==version||!active())return;
   }
@@ -521,7 +522,7 @@ export function createNativeSessionUI({api,documentPreview,getData,onModeChange,
   results.push(...items.filter(item=>owned(item)&&failedJobs.has(`${item.nodeId}/${item.runtime}/${scopes.length>1?(item.origin==='managed'?'group':'all'):scopes[0]}`)&&!results.some(r=>key(r)===key(item))));
   items=ordered(results);
   note.textContent=errors.length?[t('Some devices could not be read.'),...new Set(errors)].join(' '):t(partial?'Showing recent sessions. Updates automatically.':items.length?'':'No sessions in this filter. Create one using the top-right button.');
-  if(selected){const next=items.find(item=>key(item)===key(selected));if(next){const sameNative=nativeId(next)===nativeId(selected);selected={...selected,...next};renderTitle();if(!dialog.open&&!(historyLoading?.key===key(selected)&&historyLoading.sessionId===nativeId(next)&&historyLoading.ticket===detailVersion)&&(!quiet||historyReadStamps.get(key(selected))!==historyStamp(next)))void read(selected,{quiet:sameNative});}else resetDetail();}renderList();autoSelect(true);
+  if(selected){const next=items.find(item=>key(item)===key(selected));if(next){const sameNative=nativeId(next)===nativeId(selected);selected={...selected,...next};renderTitle();if(!dialog.open&&!(historyLoading?.key===key(selected)&&historyLoading.sessionId===nativeId(next)&&historyLoading.ticket===detailVersion)&&(!quiet||historyReadStamps.get(key(selected))!==historyStamp(next)))void read(selected,{quiet:sameNative});}else resetDetail();}renderList();autoSelect(true);if(!selected&&!errors.length)hideReadingPreview();
   // A mutation/focus refresh arriving during a read must run after that older snapshot settles.
   if(pendingRefresh)void load({quiet:true});
  }
@@ -606,7 +607,9 @@ export function createNativeSessionUI({api,documentPreview,getData,onModeChange,
   const bounded=compactHistoryPage(saved,SAVED_PAGE_CHARS);
   // Unsupported snapshots cannot be cropped safely. Keep the previous bounded page rather than losing offline history.
   if(!bounded)return false;
-  savedPages.delete(k);savedPages.set(k,bounded);if(savedPages.size>30)savedPages.delete(savedPages.keys().next().value);void saveHistory(k,bounded);return true;
+  savedPages.delete(k);savedPages.set(k,bounded);if(savedPages.size>30)savedPages.delete(savedPages.keys().next().value);void saveHistory(k,bounded);
+  if(selected&&key(selected)===k)saveReadingPreview({mode:'sessions',key:k,title:selected.title,rows:bounded.messages.filter(m=>['user','assistant'].includes(m.role)).map(m=>({role:m.role,speaker:m.role==='user'?t('You'):names[selected.runtime],text:m.role==='user'?cleanUserText(m.text):simplifiedCliOutput(stripAnsi(m.text||'')),at:m.timestamp}))});
+  return true;
  }
  function forgetPage(k){savedPages.delete(k);void forgetHistory(k);}
  function rememberPage(item,page,{appended=false,baseSnapshot=null}={}){
@@ -629,13 +632,14 @@ export function createNativeSessionUI({api,documentPreview,getData,onModeChange,
  /** Opening a session's history shows the top bar; quiet re-reads of the one on screen do not. */
  function read(item,options={}){return options.quiet?readDetail(item,options):trackLoading(readDetail(item,options));}
  async function readDetail(item,{quiet=false}={}){if(item.conversationBinding){const group=groupNativeSessions(items).find(g=>g.id===`conversation:${item.conversationBinding.id}`);if(group)item=group.latest;}
-  const ticket=++detailVersion;historyLoading={key:key(item),sessionId:nativeId(item),ticket};selected=item;try{sessionStorage.setItem(SELECTION_KEY,key(item));}catch{}renderTitle();renderList();
+  const ticket=++detailVersion;historyLoading={key:key(item),sessionId:nativeId(item),ticket};selected=item;showReadingPreview('sessions',key(item));try{sessionStorage.setItem(SELECTION_KEY,key(item));}catch{}renderTitle();renderList();
   const group=groupNativeSessions(items).find(g=>[g.latest,...g.history].some(row=>key(row)===key(item))),chain=group?[group.latest,...group.history]:[item];
   const restart=()=>{timeline.reset(item,chain.slice(chain.findIndex(row=>key(row)===key(item))+1));detailSignature=detailMeta='';};
   if(!quiet){onPreview?.();preview.close();takeover.detach();restart();scroll.replaceChildren(transcriptSkeleton());content.replaceChildren(scroll);}
   const id=nativeId(item),readable=id&&item.hasHistory!==false,current=()=>ticket===detailVersion&&active()&&key(selected)===key(item)&&nativeId(selected)===id;
   /** Draw a page: a full one (opening, or a fallback) or rows appended since the last read (`delta`). */
   const present=(base,page,{quietly})=>{
+   readingPreviewReady('sessions',key(item));
    const delta=Boolean(page?.delta);
    const value=readable?{...base,...page,...(delta?{notice:undefined,sessionConfiguration:mergeConfiguration(base.sessionConfiguration,page.sessionConfiguration)}:{}),id:item.id,entryId:item.entryId,nodeId:item.nodeId,sessionId:id,title:item.title}:base;
    selected=value;historyReadStamps.delete(key(item));historyReadStamps.set(key(item),historyStamp(item));while(historyReadStamps.size>16)historyReadStamps.delete(historyReadStamps.keys().next().value);timeline.readSucceeded();
@@ -1481,7 +1485,7 @@ const hasProcess=turn=>{const rows=processRows(turn);return rows.some(r=>r.kind=
  for(const control of switches)control.addEventListener('click',()=>selectMode(control.dataset.mode));
  mode.addEventListener('keydown',event=>{const index=event.key==='ArrowLeft'||event.key==='Home'?0:event.key==='ArrowRight'||event.key==='End'?1:null;if(index===null)return;event.preventDefault();switches[index].focus();selectMode(switches[index].dataset.mode);});
  device.addEventListener('change',()=>load());tool.addEventListener('change',()=>load());
- const refresh=()=>{if(active()&&!document.hidden&&!dialog.open&&document.body.dataset.workspaceView!=='settings')void load({quiet:true});};
+ const refresh=()=>{if(active()&&!loading&&Date.now()-lastRefresh>=1000&&!document.hidden&&!dialog.open&&document.body.dataset.workspaceView!=='settings')void load({quiet:true});};
  window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
  // Only the visible Sessions page polls; returning from iTerm also refreshes immediately.
  setInterval(()=>{if(Date.now()-lastRefresh>=30000)refresh();},30000);

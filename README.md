@@ -16,6 +16,7 @@ A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-
 - Linux Codex DNS resolver symlink access within its configured project permission profile.
 - “Project files” instead of “0 code repositories” when a project has no registered Git repositories.
 - Indexed native-session ownership checks keep scheduling responsive as task history grows.
+- Returning to a previously viewed group chat or native session shows a bounded, read-only text copy immediately while live data reconnects. Copies stay in the current browser tab; first visits still need the server.
 
 Release `v0.4.0-personal.1` is based on upstream commit [`fcee919`](https://github.com/robinli1228-ctrl/workbench/commit/fcee9192f3587ab621925eebc29e1d16c783800e), **not the latest upstream main**. The enhanced branch is `personal`; the fork's `main` remains the upstream baseline imported when the fork was created. Install the tagged release below. The existing update panel compares against `main`, so use this fork's releases for Personal Edition updates; it never installs updates automatically.
 

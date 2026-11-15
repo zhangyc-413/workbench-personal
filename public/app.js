@@ -1,3 +1,4 @@
+import {showLastReadingPreview,showReadingPreview,hideReadingPreview,groupReadingKey,clearReadingPreviews,allowReadingPreviews} from './reading-preview.js';
 import {copyText,pendingAction,bindPendingAction,bindCopyFeedback} from './role-icons.js';
 import {createDocumentPreview} from './side-preview.js';
 import {deliveryRepositorySummary} from './delivery-summary.js';
@@ -282,7 +283,7 @@ function createMobileDrawers() {
 const drawers = createMobileDrawers();
 const inspector=createWorkspaceInspector({api,documentPreview,refreshState,onError:setError,getConversationId:()=>app.selectedConversationId||app.selectedProjectId,onSideAskOpen:()=>{setInspectorMode('shown');mobilePanel('roles');},getProject:getCurrentProject,getData:()=>app.data,openDevices:()=>openSettings('devices'),openProjectFolder});
 const conversationTaskUI=createConversationTaskUI({api,getScope:()=>({projectId:app.selectedProjectId,conversationId:app.selectedConversationId||app.selectedProjectId}),getRoles:()=>[...app.data.roles,...app.data.supervisorRoles],openMessage:async(scope,id)=>{mobilePanel('chat');await room.jumpMessage(scope,id);}});
-const nativeSessionUI=createNativeSessionUI({api,documentPreview,getData:()=>app.data,onModeChange:()=>{app.view='workspace';render();},onPreview:()=>mobilePanel('chat'),onStateRefresh:()=>refreshState({quiet:true})});
+const nativeSessionUI=createNativeSessionUI({api,documentPreview,getData:()=>app.data,onModeChange:()=>{hideReadingPreview();app.view='workspace';render();},onPreview:()=>mobilePanel('chat'),onStateRefresh:()=>refreshState({quiet:true})});
 sessionProjectId=()=>nativeSessionUI.currentProjectId();
 initWorkspaceColumns();
 const mobilePanel = drawers.set;
@@ -316,6 +317,7 @@ viewportHeight();
 
 const remoteAccessUI=createRemoteAccessSettingsUI({root:document.querySelector('#remote-access-settings'),api});
 function openSettings(value = 'general') {
+  hideReadingPreview();
   let tab = normalizeSettingsTab(value);
   if (tab === 'project' && !projectsUI.prepareSettings()) tab = 'general';
   dom.projectFormPanel.hidden = true;
@@ -436,6 +438,7 @@ async function api(path, options = {}) {
     : await response.text();
 
   if (!response.ok) {
+    if(response.status===401)clearReadingPreviews();
     if(response.status===401 && !app.authPromptShown) {
       app.authPromptShown=true;
       const dialog=document.querySelector('#api-token-dialog');
@@ -629,6 +632,7 @@ async function refreshState({ quiet = false } = {}) {
       hostingAccounts:data.hostingAccounts||[],devices:data.devices||[],repositoryOperations:data.repositoryOperations||[],
       version: data.version || '', homePlatform: data.homePlatform || ''
     };
+    allowReadingPreviews();
     reconcileSelection();
     setError('');
     render();
@@ -684,7 +688,10 @@ function render() {
   projectsUI.refreshConcurrent();
   setupUI.refresh();
   platformUI.refresh(); spacesUI.refresh(); memoryUI.refresh();
-  if(!nativeSessionUI.active())void room.refresh(app.data, app.selectedProjectId,app.selectedConversationId);
+  if(!nativeSessionUI.active()){
+    showReadingPreview('groups',app.selectedProjectId?groupReadingKey(app.selectedProjectId,app.selectedConversationId):null);
+    void room.refresh(app.data, app.selectedProjectId,app.selectedConversationId);
+  }
   nativeSessionUI.sync();
 }
 
@@ -2140,9 +2147,12 @@ function startPolling() {
 }
 
 /** A resumed PWA must verify its data immediately; this does not reload the page or discard drafts. */
+let lastActivationRefresh=0;
 function refreshAfterActivation() {
-  if (document.visibilityState === 'hidden') return;
-  void refreshState();
+  // Focus, pageshow, visibility and SSE open often arrive together. Reuse an in-flight state read and keep the body.
+  if (document.visibilityState === 'hidden'||app.loadingState||Date.now()-lastActivationRefresh<1000) return;
+  lastActivationRefresh=Date.now();
+  void refreshState({quiet:true});
 }
 
 function startSse() {
@@ -2152,7 +2162,7 @@ function startSse() {
   source.addEventListener('open', () => {
     clearInterval(app.pollTimer);
     app.pollTimer = null;
-    void refreshState();
+    refreshAfterActivation();
   });
   source.addEventListener('change', () => refreshState({ quiet: true }));
   source.onerror = () => {
@@ -2236,6 +2246,7 @@ dom.saveToken?.addEventListener('click', async () => {
   try {
     const response=await fetch('/api/state',{headers:candidate?{Authorization:`Bearer ${candidate}`}:{}});
     if(!response.ok)throw new Error(response.status===401?'Incorrect Home access token; please enter it again.':t('Home verification failed (HTTP {status})', { status: response.status }));
+    if(candidate!==app.token)clearReadingPreviews();
     saveApiToken(candidate);
     app.token=candidate;app.authPromptShown=false;
     connectUpdates();await refreshState();document.querySelector('#api-token-dialog').close();void syncLanguage();
@@ -2252,6 +2263,7 @@ for (const id of ['#close-api-token-dialog', '#cancel-api-token-dialog']) docume
 document.querySelector('#api-token-dialog')?.addEventListener('close', () => { dom.apiToken.value = app.token; });
 window.addEventListener('storage', event => {
   if (event.storageArea !== localStorage || (event.key !== TOKEN_KEY && event.key !== null)) return;
+  clearReadingPreviews();
   app.token=readApiToken();app.authPromptShown=false;
   dom.apiToken.value=app.token;
   connectUpdates();void refreshState();
@@ -2410,6 +2422,7 @@ window.addEventListener('focus', refreshAfterActivation);
 window.addEventListener('online', refreshAfterActivation);
 window.addEventListener('pageshow', refreshAfterActivation);
 document.addEventListener('visibilitychange', refreshAfterActivation);
+showLastReadingPreview();
 connectUpdates();
 refreshState().finally(() => void syncLanguage());
 startElapsedTicker();
