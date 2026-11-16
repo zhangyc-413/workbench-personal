@@ -2,13 +2,36 @@
 <html lang="zh-CN">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#191919">
 <title>Workbench 远程访问</title>
 <style>
-  *{box-sizing:border-box}body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#f5f6fb;color:#263047;font:16px/1.6 system-ui,sans-serif;padding:24px}main{width:min(100%,390px);padding:32px;background:white;border:1px solid #e3e6ef;border-radius:14px;box-shadow:0 12px 36px #24334d0a}h1{font-size:23px;margin:0 0 8px}p{color:#657089;margin:0 0 24px;font-size:14px}label{display:block;font-size:14px;margin-bottom:8px}input,button,a{font:inherit}input{width:100%;padding:12px;border:1px solid #cbd1e0;border-radius:8px}input:focus{outline:2px solid #c7cbff;border-color:#646de4}button{width:100%;margin-top:16px;padding:11px;border:0;border-radius:8px;background:#555dd6;color:white;cursor:pointer}button:disabled{opacity:.55;cursor:wait}#status{min-height:24px;margin-top:12px;color:#a83c45;font-size:14px}a{color:#505acb}.secondary{background:#eef0fa;color:#465173}[hidden]{display:none!important}
+  :root{color-scheme:dark;background:#191919;color:#ececec}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100dvh;display:grid;place-items:center;background:#191919;font:16px/1.6 system-ui,sans-serif;padding:24px}
+  main{width:min(100%,390px);padding:32px;background:#272727;border:1px solid #414141;border-radius:14px;box-shadow:0 12px 36px #0003}
+  h1{font-size:23px;margin:0 0 8px}
+  p{color:#b1b1b1;margin:0 0 24px;font-size:14px}
+  label{display:block;font-size:14px;margin-bottom:8px}
+  input,button,a{font:inherit}
+  input{width:100%;padding:12px;border:1px solid #484848;border-radius:8px;background:#202020;color:#ececec;caret-color:#ececec}
+  input:autofill{background:#202020;color:#ececec}
+  input:-webkit-autofill{-webkit-text-fill-color:#ececec;box-shadow:0 0 0 1000px #202020 inset;caret-color:#ececec}
+  input:focus{outline:2px solid #ffffff26;outline-offset:2px;border-color:#999}
+  button{width:100%;margin-top:16px;padding:11px;border:1px solid transparent;border-radius:8px;background:#e6e6e6;color:#202020;font-weight:600;cursor:pointer}
+  button:hover{background:#f0f0f0}
+  button:focus-visible,a:focus-visible{outline:2px solid #b1b1b1;outline-offset:3px}
+  button:disabled{opacity:.55;cursor:wait}
+  #status{min-height:24px;margin-top:12px;color:#e9aaaa;font-size:14px;overflow-wrap:anywhere}
+  a{color:#d9d9d9;text-underline-offset:3px}
+  .secondary{background:#303030;border-color:#484848;color:#ececec}
+  .secondary:hover{background:#3a3a3a}
+  [hidden]{display:none!important}
+  @media(max-width:420px){body{padding:20px}main{padding:24px}}
 </style>
 <main>
   <h1>Workbench 远程访问</h1>
-  <p>使用在 Mac 上设置的访问密码。登录固定有效 15 天。</p>
+  <p>输入访问密码，进入工作台。</p>
   <form id="login-form">
     <label for="password">访问密码</label>
     <input id="password" type="password" autocomplete="current-password" required maxlength="1024" autofocus>

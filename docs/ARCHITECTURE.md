@@ -44,6 +44,8 @@ Home API authentication is still required. Relay administration additionally req
 
 Release provenance includes `modules/remote-access` alongside the existing runtime paths, detecting added, changed and missing module files. Packaging the optional module does not update or restart a running independent gateway or Worker.
 
+The gateway's password page in `modules/remote-access/public/login.html` uses a fixed charcoal palette matching the Workbench dark theme. Its inline styles and dark color-scheme metadata cover initial rendering, form controls, autofill, keyboard focus and errors without changing authentication. The gateway reads this page at process startup, so deploying its appearance requires restarting the gateway only.
+
 Server-field edits require the local service's `configPatch: 1` capability. Home and the recovery UI send changed fields to `/api/config-patch`; validation and read/merge/write happen in the service's shared lifecycle queue, preventing a delayed Home save from overwriting a recovery-page update. Old services expose a read-only configuration card with an explicit upgrade notice; there is no full-snapshot save fallback. Existing password and enable/disable operations retain their compatibility.
 
 Group-conversation branching and team copying are entered from two non-submit buttons in the Project actions card of the project's basic settings. Branching captures the selected project/chat before opening the existing title form; copying opens the existing configuration preview. The main toolbar and sidebar no longer expose the separate group-actions menu. Opening either action does not save the settings form; successful creation navigates to the created chat/project.
