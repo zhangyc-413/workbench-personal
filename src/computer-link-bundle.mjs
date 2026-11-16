@@ -26,6 +26,7 @@ const verifiedAssets=new Map();
 /** Pre-staged, fixed-name releases only. Hash once per unchanged file; never fetch during a Home request. */
 export async function computerLinkAssets(directory,arch){
   if(!directory)throw Error('Complete connection packages have not been prepared');
+  if(arch==='universal')return (await Promise.all(['arm64','x64'].map(async type=>(await computerLinkAssets(directory,type)).map(asset=>({...asset,name:asset.name.replace('/components/','/components/'+type+'/')}))))).flat();
   return Promise.all(runtimeFiles(arch).map(async asset=>{
     const path=join(directory,asset.name),s=await lstat(path);
     if(!s.isFile()||s.size>150*1024*1024)throw Error('Invalid runtime asset');
@@ -58,15 +59,16 @@ case "$(uname -m)" in
  x86_64) arch=x64; digest=${assets.x64.node} ;;
  *) echo "暂不支持这台电脑的架构"; exit 1 ;;
 esac
-if [ "$arch" != "${arch}" ]; then echo "这个包不适用于当前芯片，请回网页选择正确的 Mac 类型后重新下载。"; read -r -p "按回车关闭…"; exit 1; fi
+${arch==='universal'?'components="./components/$arch"':`components="./components"
+if [ "$arch" != "${arch}" ]; then echo "这个包不适用于当前芯片，请回网页重新下载连接助手。"; read -r -p "按回车关闭…"; exit 1; fi`}
 echo "[1/3] 正在校验并准备本机组件（无需联网下载）…"
 runtime="$HOME/Library/Application Support/Workbench Connect/runtime-v22.22.1-$arch"
 if [ ! -x "$runtime/bin/node" ]; then
  stage=$(mktemp -d)
  trap 'rm -rf "$stage"' EXIT
- actual=$(/usr/bin/shasum -a 256 ./components/node.tgz | /usr/bin/awk '{print $1}')
+ actual=$(/usr/bin/shasum -a 256 "$components/node.tgz" | /usr/bin/awk '{print $1}')
  [ "$actual" = "$digest" ] || { echo "连接包校验失败，请重新下载完整包"; read -r -p "按回车关闭…"; exit 1; }
- /usr/bin/tar -xzf ./components/node.tgz -C "$stage"
+ /usr/bin/tar -xzf "$components/node.tgz" -C "$stage"
  mkdir -p "$(dirname "$runtime")"
  [ -d "$runtime" ] || mv "$stage/node-v22.22.1-darwin-$arch" "$runtime"
 fi

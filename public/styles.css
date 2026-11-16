@@ -4464,7 +4464,7 @@ dialog.media-lightbox .media-nav-next { right: 10px; }
 /* Computer connection is an explicit setup action, separate from chat refresh. */
 .computer-link-entry{margin:8px 12px;flex-shrink:0;}
 body[data-project-sidebar="collapsed"] .computer-link-entry{display:none;}
-.computer-link-dialog{width:min(680px,calc(100vw - 32px));max-height:85dvh;overflow:auto;}
+.computer-link-dialog{width:min(540px,calc(100vw - 32px));max-height:85dvh;overflow:auto;}
 .computer-link-dialog ol{padding-left:24px;line-height:1.9;}
 .computer-link-option{display:flex;align-items:center;gap:10px;margin-top:18px;}
 .computer-link-option input{width:auto;}
@@ -4476,3 +4476,16 @@ body[data-project-sidebar="collapsed"] .computer-link-entry{display:none;}
 
 .computer-link-actions{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 12px;}
 .computer-link-dialog .form-feedback:empty{display:none;}
+
+.computer-link-dialog h3{font-size:22px;line-height:1.4;margin:8px 0 12px;}
+.computer-link-dialog p{line-height:1.65;}
+.computer-link-kicker,.computer-link-caption,.computer-link-sync-note{font-size:13px;color:var(--muted);}
+.computer-link-dialog .computer-link-kicker{margin-bottom:0;}
+.computer-link-dialog .computer-link-actions>.primary{width:100%;padding:13px 18px;}
+.computer-link-dialog .computer-link-caption{text-align:center;margin-top:0;}
+.computer-link-dialog details{margin-top:16px;}
+.computer-link-dialog summary{cursor:pointer;font-size:14px;color:var(--muted);}
+.computer-link-dialog .computer-link-options{border-top:1px solid var(--line);padding-top:16px;}
+.computer-link-dialog .computer-link-help p{font-size:13px;color:var(--muted);}
+.computer-link-dialog .computer-link-sync-note{margin:14px 0 0;}
+.computer-link-next strong{overflow-wrap:anywhere;}

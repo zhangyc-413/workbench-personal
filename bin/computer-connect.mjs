@@ -78,7 +78,7 @@ export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascri
     }
     try{await stat(c.syncthing);}catch(e){
       if(e.code!=='ENOENT')throw e;console.log('正在校验连接包中的同步组件…');
-      const arch=process.arch==='arm64'?'arm64':'amd64',archive=join(dirname(ticketPath),'components','syncthing.zip');
+      const arch=process.arch==='arm64'?'arm64':'amd64',archive=join(dirname(ticketPath),'components',ticket.arch==='universal'?process.arch:'','syncthing.zip');
       if(sha(await readFile(archive))!==ticket.assets[process.arch].sync)throw Error('同步组件校验失败');
       await run('/usr/bin/ditto',['-x','-k',archive,join(dir,'download')]);
       await copyFile(join(dir,'download',`syncthing-macos-${arch}-v1.30.0`,'syncthing'),c.syncthing);

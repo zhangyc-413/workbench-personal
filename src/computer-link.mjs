@@ -42,9 +42,9 @@ export class ComputerLink {
       await atomic(this.config.maintenanceAuthorizedKeys,dev.join('\n')+'\n');
     }
   }
-  async create({maintenance=false,arch='arm64'}={}){
+  async create({maintenance=false,arch='universal'}={}){
     if(!this.config)throw fail('管理员尚未配置连接助手',503);
-    if(!['arm64','x64'].includes(arch))throw fail('请选择 Mac 芯片类型');
+    if(!['arm64','x64','universal'].includes(arch))throw fail('不支持的连接包类型');
     await computerLinkAssets(this.config.runtimeCache,arch).catch(()=>{throw fail('服务器尚未备好完整连接包，请联系管理员准备组件',503);});
     if(this.rows.filter(r=>r.status==='pending'&&r.expiresAt>this.now()).length>=5)throw fail('已有多个待连接下载包，请先取消不用的连接');
     if(this.rows.filter(r=>r.status!=='revoked'&&r.status!=='pending').length>=32)throw fail('连接数量已达到上限');
