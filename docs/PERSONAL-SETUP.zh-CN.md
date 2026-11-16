@@ -4,6 +4,8 @@
 
 适合一个人使用自己的电脑、服务器和 CLI 账号。先在一台机器上跑通，再增加域名或其他设备。`xxxxx` 都是占位符，需要替换成自己的值。
 
+只想让本机 Codex 帮忙安装，先看[这份安装交接说明](CODEX-INSTALL.zh-CN.md)。
+
 ## 1. 准备环境和代码
 
 - 安装 Git 和 Node.js 22；本版固定验证版本为 `.nvmrc` 中的 `22.22.1`。
@@ -11,14 +13,15 @@
 - MCP、浏览器工具等也要在执行机器上配置。登录同一个账号不会自动复制另一台电脑的工具。
 
 ```sh
-git clone --branch v0.4.0-personal.1 https://github.com/zhangyc-413/workbench-personal.git
+git clone --branch personal --single-branch https://github.com/zhangyc-413/workbench-personal.git
 cd workbench-personal
+git rev-parse HEAD  # record the installed version
 nvm install     # 已使用 nvm 时执行；其他方式安装 Node 的用户可跳过
 nvm use
 npm ci
 ```
 
-按发布标签安装时，Git 提示 detached HEAD 是正常现象：这是固定版本。做开发时自行新建分支。
+这里安装最新 `personal` 分支，包含新的连接和恢复功能。记录上面的提交号便于复现。旧标签 `v0.4.0-personal.1` 不包含这些新增改动；修改功能前可以新建自己的分支。
 
 ## 2. 单机试用
 
@@ -127,7 +130,7 @@ ssh -N -L 14317:127.0.0.1:4317 xxxxx@xxxxx
 
 ## 6. 更新、备份和问题定位
 
-- 从本仓库 Releases 选择版本；`personal` 是增强分支，`main` 保留上游代码。“检查更新”仍比较 `main`，不是此增强版的发布器。
+- 最新功能从 `personal` 分支选择并记录提交，也可从 Releases 选择固定旧版本；`personal` 是增强分支，`main` 保留上游代码。“检查更新”仍比较 `main`，不是此增强版的发布器。
 - 升级前在任务空闲时停止服务，备份 Home/Worker 私有数据、项目文件和需要保留的原生会话，再切换发布版本、执行 `npm ci` 并重启。不要同时启动两个 Home 使用同一份数据库。
 - 浏览器关闭不等于停止服务器；电脑关机则无法运行本机 Worker 或同步。
 - “会话占用”“设备容量已满”需要检查原有任务及进程，不能通过删除数据库或关闭权限检查解决。

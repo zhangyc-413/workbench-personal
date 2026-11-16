@@ -6,19 +6,25 @@
 
 这是 [robinli1228-ctrl/workbench](https://github.com/robinli1228-ctrl/workbench) 的社区分支，保留原作者的协作平台及 [MIT 许可证](LICENSE)，把个人云端使用过程中做的改进整理成可自行部署的版本。
 
+**交给本机 Codex 安装：[从 GitHub 配置自己的工作台](docs/CODEX-INSTALL.zh-CN.md)。最新改动在 `personal` 分支，旧标签 `v0.4.0-personal.1` 不含这些新改动。**
+
 **先看：[中文安装说明](docs/PERSONAL-SETUP.zh-CN.md) · [English setup](docs/PERSONAL-SETUP.md) · [改进和版本边界](docs/PERSONAL-CHANGES.md)。**
 
 这个分支新增或调整了：
+
+- 网页准备连接资料并唤起本机 Codex，填好 SSH 和文件同步的安装任务；需要用户发送后执行。可选授权本机维护工作台源码，也保留独立助手下载。
+- 会话和群聊返回时先显示本页已缓存的正文；后台状态更新保持安静，启动失败时可恢复界面而保留登录及草稿。
+- 修复历史记录增长导致的会话占用检查变慢，以及重启后空闲会话未恢复的问题。
 
 - 跟随系统切换日间、夜间，夜间使用中性深灰配色。
 - 手机输入框随可见屏幕高度调整，处理 iPhone 弹出键盘后的页面偏移。
 - **每次新建原生会话都创建独立文件夹**，同名会话也分开；重试复用同一个文件夹，继续旧会话保留原目录和历史。
 - 云端 Worker 已连接时，可以直接在网页创建会话，无需额外登记 SSH；iTerm 方式仍需要 SSH。
-- 显示已配置 Syncthing 文件夹的同步状态。这里只观察状态，不负责安装或开启同步。
+- 显示已配置 Syncthing 文件夹的同步状态。原有适配器只观察状态；新的“连接我的电脑”流程可显式配置一对独立文件夹。
 - 修复 Linux 上 Codex 项目权限范围内读取 DNS 配置软链接目标的问题。
 - 没有关联 Git 仓库的项目显示“项目文件”，避免误以为没有文件。
 
-首版 `v0.4.0-personal.1` 基于上游 [`fcee919`](https://github.com/robinli1228-ctrl/workbench/commit/fcee9192f3587ab621925eebc29e1d16c783800e)，并未合入上游此后的全部更新。增强代码位于 `personal` 分支；`main` 保留创建 Fork 时导入的上游版本。建议安装固定发布版本。现有“检查更新”界面仍比较 `main`，个人增强版请以本仓库 Releases 为准；界面不会自动安装更新。
+首版 `v0.4.0-personal.1` 基于上游 [`fcee919`](https://github.com/robinli1228-ctrl/workbench/commit/fcee9192f3587ab621925eebc29e1d16c783800e)，并未合入上游此后的全部更新。增强代码位于 `personal` 分支；`main` 保留创建 Fork 时导入的上游版本。安装最新功能请使用 `personal` 分支，并记录实际提交；需要固定旧版本时才选择对应发布标签。现有“检查更新”界面仍比较 `main`，个人增强版按本仓库说明选择分支提交或发布标签；界面不会自动安装更新。
 
 仓库不包含账号、订阅、厂商 CLI 软件、登录状态、托管服务或私人项目资料。使用者自行安装 CLI、登录自己的账号并配置工具。本分支与 Anthropic、OpenAI 没有官方关联，也不改变服务商的地区、账号或使用条款。
 

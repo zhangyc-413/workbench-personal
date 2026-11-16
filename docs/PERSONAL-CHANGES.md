@@ -1,5 +1,9 @@
 # Personal Edition changes
 
+## Latest `personal` branch (after the first release)
+
+The branch adds Mac SSH/Syncthing enrollment with optional local maintenance, complete helper packages and a lighter Codex-assisted setup handoff. It also restores cached chat text before reconnecting, keeps native-state refreshes compact and quiet, recovers idle sessions after Home restart, avoids historical scans during ownership checks and offers browser startup recovery without clearing user data. These changes are not in the existing `v0.4.0-personal.1` release tag. See [current setup](PERSONAL-SETUP.md) and [Codex installation handoff](CODEX-INSTALL.zh-CN.md).
+
 ## v0.4.0-personal.1
 
 Base: upstream `fcee9192f3587ab621925eebc29e1d16c783800e` (MIT).
@@ -22,7 +26,7 @@ The source changes retain the upstream scheduler, queues, permission choices, na
 
 - `personal` is the enhanced branch and the default landing page of this fork.
 - `main` is retained as imported upstream source. Upstream changes require an explicit integration and validation before a new Personal Edition release.
-- Install a release tag for reproducibility. Do not pull `main` into a running customized installation.
+- Install the `personal` branch for the current feature set and record its exact commit; choose a release tag when that older fixed version is intended. Do not pull `main` into a running customized installation.
 - The existing update panel compares the package repository's `main`. It is informational, does not install anything, and is not a Personal Edition release updater.
 - Stop the processes at a safe idle point before replacing application files. Preserve private Home/Worker data and CLI credentials separately. Old session directories remain where they were created.
 

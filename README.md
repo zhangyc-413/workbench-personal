@@ -4,6 +4,8 @@ English | [Simplified Chinese](README.zh-CN.md)
 
 A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-ctrl/workbench), for a personal, self-hosted Claude Code / Codex workspace. The original authors built the collaboration platform; this fork packages a small set of usability and deployment improvements under the same [MIT license](LICENSE).
 
+**Install with your local Codex:** [installation handoff (中文)](docs/CODEX-INSTALL.zh-CN.md). The latest improvements are on `personal`; the older `v0.4.0-personal.1` tag does not contain them.
+
 **Start here:** [personal server setup](docs/PERSONAL-SETUP.md) · [中文安装说明](docs/PERSONAL-SETUP.zh-CN.md) · [fork changes](docs/PERSONAL-CHANGES.md).
 
 ### What this fork adds
@@ -23,7 +25,7 @@ A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-
 - A stalled or failed page startup offers interface recovery; `/recover` refreshes only Workbench static files while preserving sign-in, drafts and conversations.
 - Native chats load compact session state instead of the group task archive. Temporary read failures retain the last complete state and resume incremental updates; background refreshes show no moving progress bar.
 
-Release `v0.4.0-personal.1` is based on upstream commit [`fcee919`](https://github.com/robinli1228-ctrl/workbench/commit/fcee9192f3587ab621925eebc29e1d16c783800e), **not the latest upstream main**. The enhanced branch is `personal`; the fork's `main` remains the upstream baseline imported when the fork was created. Install the tagged release below. The existing update panel compares against `main`, so use this fork's releases for Personal Edition updates; it never installs updates automatically.
+Release `v0.4.0-personal.1` is based on upstream commit [`fcee919`](https://github.com/robinli1228-ctrl/workbench/commit/fcee9192f3587ab621925eebc29e1d16c783800e), **not the latest upstream main**. The enhanced branch is `personal`; the fork's `main` remains the upstream baseline imported when the fork was created. Use the `personal` branch for the current documented features and record its commit before deployment. Use a release tag only when you intentionally want that fixed older version. The existing update panel compares against `main`, so use this fork's documented branch/commit or an explicitly selected release for Personal Edition updates; it never installs updates automatically.
 
 No accounts, subscriptions, vendor CLI binaries, login sessions, hosted service, or private project data are included. Each operator supplies their own runtime and credentials. This fork is not affiliated with Anthropic or OpenAI and does not change provider availability, terms, or account eligibility.
 

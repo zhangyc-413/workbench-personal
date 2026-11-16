@@ -9,8 +9,9 @@ Use your own machines, CLI accounts, credentials and project directories. Every 
 Install Git, Node.js 22 (`.nvmrc` pins `22.22.1`), and at least one supported CLI. Authenticate the CLI as the same operating-system user that will run Worker. MCP and browser tools must be configured on that execution machine separately.
 
 ```sh
-git clone --branch v0.4.0-personal.1 https://github.com/zhangyc-413/workbench-personal.git
+git clone --branch personal --single-branch https://github.com/zhangyc-413/workbench-personal.git
 cd workbench-personal
+git rev-parse HEAD  # record the installed version
 nvm install     # optional: for nvm users
 nvm use
 npm ci
@@ -20,7 +21,7 @@ export WORKSPACE_ROOT="$HOME/workbench-projects"
 npm run dev
 ```
 
-Open `http://127.0.0.1:4317`. A tagged checkout being in detached HEAD state is expected. Create a development branch if you want to edit the code.
+Open `http://127.0.0.1:4317`. This installs the latest `personal` branch, including the newer connection and recovery features. Record the commit above for reproducible deployment. The older `v0.4.0-personal.1` tag does not include these additions. Create your own branch before modifying the code.
 
 Check Settings → Devices and CLIs. Create either a native **Session** (its own directory) or a project **Group chat** (a bound project child directory). Do not bind the entire workspace parent as a project: independent session creation rejects overlapping managed directories. A saved device workspace setting overrides `WORKSPACE_ROOT`; review it when upgrading an existing installation. Existing sessions keep their original directories and histories.
 
@@ -109,7 +110,7 @@ The observer displays state and counts. Syncthing owns pairing, transfers, exclu
 
 ## Updates and boundaries
 
-- Install Personal Edition releases. The enhanced branch is `personal`; `main` retains upstream code. The built-in update panel compares `main` and is not a Personal Edition release updater.
+- Install and record the current `personal` commit, or intentionally choose a fixed Personal Edition release. The enhanced branch is `personal`; `main` retains upstream code. The built-in update panel compares `main` and is not a Personal Edition release updater.
 - At an idle point, stop services, back up private Home/Worker data and project/native-session files, change release, run `npm ci`, and restart. Never run two Homes against one database.
 - Browsers can close without stopping server tasks. A powered-off computer cannot run its Worker or synchronize local files.
 - Occupied sessions and full device capacity require checking the owning tasks/processes. Do not clear databases or remove permission checks to bypass them.
