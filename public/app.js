@@ -989,7 +989,9 @@ function renderRoles() {
       note.hidden = false;
       note.textContent = 'Select a project before managing roles. Project folders are bound in Project Settings.';
     }
-    dom.roleList.append(create('div', 'worker-empty', 'No project selected'));
+    const empty=create('div','worker-empty');
+    empty.append(create('p','','Create or select a project to see its roles. A new project includes a Claude or Codex manager.'));
+    const start=create('button','primary compact','New project');start.type='button';start.onclick=()=>showProjectForm(true);empty.append(start);dom.roleList.append(empty);
     return;
   }
   if (note) {

@@ -24,7 +24,7 @@ function lastSupervisorChoice(settings) {
   return last || { nodeId: '', runtime: settings.defaultSupervisorRuntime || '', model: settings.defaultSupervisorModel || '', effort: settings.defaultSupervisorEffort || '' };
 }
 
-/** The create form accepts only Workers explicitly registered as local; the config card always shows the actual execution target. */
+/** Local devices allow explicit folder grants; cloud devices keep their configured workspace boundary. */
 export function projectSetupUI({ api, getData, getProject, refreshState, create, setError,openFolder }) {
   const form = document.querySelector('#project-form');
   const folderLabel=create('label','full-width','Existing project folder (optional)'),folderRow=create('div','native-workspace-row'),localRoot=create('input'),pickFolder=create('button','secondary','Select folder');
@@ -60,8 +60,9 @@ export function projectSetupUI({ api, getData, getProject, refreshState, create,
     select('supervisorRuntime', runtimes.map(r => ({ id: r.type, name: r.label || r.type })), 'Select a signed-in CLI', last.runtime);
     const runtime = runtimes.find(r => r.type === form.elements.supervisorRuntime.value);
     const local=worker?.nodeKind==='local'&&worker.capabilities?.localFolderSelection===1;
-    localRoot.disabled=pickFolder.disabled=!local;
-    folderNote.textContent=local?'Only the selected folder is bound; existing files are kept. Browsing does not grant CLI permissions.':'Upgrade the local Worker to select this folder';
+    const server=worker?.nodeKind==='cloud'&&worker.capabilities?.projectFolderSelection===1;
+    localRoot.disabled=pickFolder.disabled=!(local||server);
+    folderNote.textContent=local?'Only the selected folder is bound; existing files are kept. Browsing does not grant CLI permissions.':server?'Choose a folder on the server, or leave blank to create a new one. Connect your computer separately to sync local files.':'Leave blank to create a new project folder. Upgrade this device to choose an existing folder.';
     renderPermissionScope(permissionSelect,permissionNote,{worker,runtime:runtime?.type,isNew:true});
     select('supervisorModel', runtime?.models || [], 'Select manager model', last.runtime === form.elements.supervisorRuntime.value ? last.model : '');
     const model = runtime?.models?.find(m => m.id === form.elements.supervisorModel.value);

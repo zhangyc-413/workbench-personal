@@ -87,7 +87,7 @@ const base = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const softwareVersion=await readSoftwareVersion(base);
 const softwareUpdates=new SoftwareUpdates({repository:softwareVersion.repository});
 const data = resolve(process.env.DATA_DIR || join(base, '.data/home'));
-const computerLink=await new ComputerLink({data}).load();
+const computerLink=await new ComputerLink({data,listenHost:process.env.HOST||'127.0.0.1'}).load();
 const externalFileSync=await new ExternalFileSync({configFile:join(data,'external-file-sync.json')}).load();
 initLanguage(data); // load the saved language (data/language.json) before any text is produced
 const host = process.env.HOST || '127.0.0.1';
@@ -588,7 +588,7 @@ function workerQuery(run, action, path, timeout = 10000) {
 /** Human creation only: preparation is not authorization; activate in the binding transaction. */
 async function prepareFolderBinding(nodeId,scope,path,operationId){
  const worker=db.get('workers',nodeId);
- if(resolveNodeKind(worker?.nodeKind,worker?.platform)!=='local'||worker?.capabilities?.localFolderSelection!==1)throw Error('Upgrade the local Worker to select this folder');
+ if(worker?.capabilities?.projectFolderSelection!==1&&(resolveNodeKind(worker?.nodeKind,worker?.platform)!=='local'||worker?.capabilities?.localFolderSelection!==1))throw Error('Upgrade the Worker to select an existing folder');
  const bindings=[...db.list('workspaces'),...db.list('repositoryWorkspaces')].filter(b=>b.nodeId===nodeId).map(b=>({projectId:b.projectId,localRoot:b.localRoot}));
  return workerQuery({nodeId},'folder_grant_prepare',{scope,path,operationId,bindings});
 }

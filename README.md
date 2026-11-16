@@ -235,3 +235,5 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md) before contri
 ## License
 
 [MIT](LICENSE).
+
+Computer connection also supports an explicitly configured SSH-only trial: enrollment uses an existing loopback Home tunnel, then the scoped helper key carries synchronization and a separate local Home forward. Cloud project creation can select existing folders within the Worker’s configured roots; it does not enable whole-server browsing. See `docs/COMPUTER-CONNECT.md`.

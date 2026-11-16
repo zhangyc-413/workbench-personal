@@ -12,11 +12,14 @@ const send=(res,value,status=200)=>{res.writeHead(status,{'Content-Type':'applic
 
 /** Explicit, single-operator enrollment. No provider credentials or Worker grants cross this boundary. */
 export class ComputerLink {
-  constructor({data,fetchImpl=fetch,now=Date.now}){Object.assign(this,{data,fetchImpl,now});this.dir=join(data,'computer-link');this.rows=[];this.config=null;this.queue=Promise.resolve();}
+  constructor({data,fetchImpl=fetch,now=Date.now,listenHost='127.0.0.1'}){Object.assign(this,{data,fetchImpl,now,listenHost});this.dir=join(data,'computer-link');this.rows=[];this.config=null;this.queue=Promise.resolve();}
   async load(){
     try{this.config=JSON.parse(await readFile(join(this.data,'computer-link.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;return this;}
     const c=this.config,u=new URL(c.publicOrigin),s=new URL(c.syncthingUrl);
-    if(u.protocol!=='https:'||u.origin!==c.publicOrigin||s.protocol!=='http:'||s.hostname!=='127.0.0.1'||s.pathname!=='/'||s.username||s.password||s.search||s.hash)throw Error('Invalid computer link endpoints');
+    if(c.transport&&!['ssh','https'].includes(c.transport))throw Error('Invalid computer link transport');
+    const ssh=c.transport==='ssh';
+    if(ssh&&(this.listenHost!=='127.0.0.1'||u.protocol!=='http:'||u.hostname!=='127.0.0.1'||!u.port||!Number.isInteger(c.homePort)||c.homePort<1||c.homePort>65535))throw Error('SSH enrollment requires a loopback-only Home and local URL');
+    if((!ssh&&u.protocol!=='https:')||u.origin!==c.publicOrigin||s.protocol!=='http:'||s.hostname!=='127.0.0.1'||s.pathname!=='/'||s.username||s.password||s.search||s.hash)throw Error('Invalid computer link endpoints');
     if(!/^[a-zA-Z0-9.-]+$/.test(c.sshHost)||!Number.isInteger(c.sshPort)||c.sshPort<1||c.sshPort>65535||!Number.isInteger(c.syncPort)||c.syncPort<1||c.syncPort>65535||!/^\w[\w-]*$/.test(c.sshUser)||!/^ssh-ed25519 [A-Za-z0-9+/=]+$/.test(c.hostKey))throw Error('Invalid computer link SSH configuration');
     for(const key of ['folderRoot','authorizedKeys','syncthingConfig'])if(!c[key]?.startsWith('/'))throw Error('Computer link paths must be absolute');
     if(c.runtimeCache&&!c.runtimeCache.startsWith('/'))throw Error('Runtime cache path must be absolute');
@@ -35,7 +38,9 @@ export class ComputerLink {
   }
   async keys(){
     // This is a dedicated AuthorizedKeysFile configured for a forwarding-only account, never a user's normal key file.
-    const lines=this.rows.filter(r=>r.publicKey&&!['revoked','revoking'].includes(r.status)).map(r=>`restrict,port-forwarding,permitopen="127.0.0.1:${this.config.syncPort}" ${r.publicKey} wb-link-${r.id}`);
+    const ports=[this.config.syncPort,...(this.config.transport==='ssh'?[this.config.homePort]:[])];
+    const permits=ports.map(port=>`permitopen="127.0.0.1:${port}"`).join(',');
+    const lines=this.rows.filter(r=>r.publicKey&&!['revoked','revoking'].includes(r.status)).map(r=>`restrict,port-forwarding,${permits} ${r.publicKey} wb-link-${r.id}`);
     await atomic(this.config.authorizedKeys,lines.join('\n')+'\n');
     if(this.config.maintenanceAuthorizedKeys){
       const dev=this.rows.filter(r=>r.maintenanceKey&&!['revoked','revoking'].includes(r.status)).map(r=>`${r.maintenanceKey} wb-link-dev-${r.id}`);
@@ -55,13 +60,17 @@ export class ComputerLink {
     this.rows=this.rows.filter(r=>r.status!=='pending'||r.expiresAt>this.now());this.rows.push(row);await this.save();
     return {id,expiresAt:row.expiresAt,downloadToken:token,arch,setup};
   }
-  async download(id,token,res){
+  async download(id,token,res,{origin=this.config.publicOrigin}={}){
     const r=this.rows.find(row=>row.id===id&&row.tokenHash===hash(token));
     if(!r||r.status!=='pending'||r.expiresAt<this.now())throw fail('连接包已失效，请重新下载',401);
     const runtimes=r.setup==='codex'?[]:await computerLinkAssets(this.config.runtimeCache,r.arch);
     // Revocation may run during async asset validation. Recheck before releasing the package.
     if(r.status!=='pending'||r.expiresAt<this.now())throw fail('连接包已失效，请重新下载',401);
-    await streamComputerLinkBundle({id:r.id,token,origin:this.config.publicOrigin,expiresAt:r.expiresAt,ignores,maintenance:r.maintenance,arch:r.arch,setup:r.setup||'helper'},runtimes,res);
+    if(this.config.transport==='ssh'){
+      const u=new URL(origin);
+      if(u.origin!==origin||u.protocol!=='http:'||u.hostname!=='127.0.0.1'||!u.port)throw fail('请通过本机 SSH 连接下载',400);
+    }else origin=this.config.publicOrigin;
+    await streamComputerLinkBundle({id:r.id,token,origin,transport:this.config.transport||'https',homePort:this.config.transport==='ssh'?this.config.homePort:undefined,expiresAt:r.expiresAt,ignores,maintenance:r.maintenance,arch:r.arch,setup:r.setup||'helper'},runtimes,res);
   }
   async claim(token,b){
     const r=this.rows.find(r=>r.tokenHash===hash(token));
@@ -88,7 +97,7 @@ export class ComputerLink {
     await this.sync('config/devices','POST',{...device,deviceID:r.peerId,name:r.name,addresses:['dynamic'],autoAcceptFolders:false,introducer:false});
     await this.sync('config/folders','POST',{...defaults,id:r.folderId,label:'Workbench '+r.name,path:folder,type:'sendreceive',paused:false,devices:[{deviceID:server.myID},{deviceID:r.peerId}],maxConflicts:-1,fsWatcherEnabled:true,versioning:{type:'simple',params:{keep:'20'},cleanupIntervalS:3600}});
     await this.keys();r.status='paired';await this.save();
-    return {id:r.id,folderId:r.folderId,serverId:server.myID,folder,sshHost:this.config.sshHost,sshPort:this.config.sshPort,sshUser:this.config.sshUser,hostKey:this.config.hostKey,syncPort:this.config.syncPort,ignores,maintenanceUser:r.maintenance?this.config.maintenanceUser:null,deployment:r.maintenance?this.config.deployment:null};
+    return {id:r.id,folderId:r.folderId,serverId:server.myID,folder,sshHost:this.config.sshHost,sshPort:this.config.sshPort,sshUser:this.config.sshUser,hostKey:this.config.hostKey,syncPort:this.config.syncPort,homePort:this.config.transport==='ssh'?this.config.homePort:null,ignores,maintenanceUser:r.maintenance?this.config.maintenanceUser:null,deployment:r.maintenance?this.config.deployment:null};
   }
   async revoke(id){
     const r=this.rows.find(r=>r.id===id);if(!r)throw fail('连接不存在',404);
@@ -107,7 +116,7 @@ export class ComputerLink {
         if(state==='connecting')try{const [s,c]=await Promise.all([this.sync('db/status?folder='+r.folderId),this.sync('db/completion?folder='+r.folderId+'&device='+r.peerId)]);files=s.localFiles;pendingItems=Number.isFinite(s.needTotalItems)&&Number.isFinite(c.needItems)?s.needTotalItems+c.needItems:null;state=s.error||s.errors>0||s.pullErrors>0?'error':s.state==='idle'&&c.remoteState==='valid'&&pendingItems===0&&c.completion===100?'synced':'syncing';}catch{state='unknown';}
       }
       return {id:r.id,name:r.name||'等待连接的 Mac',status:state,folder:r.folder||null,createdAt:r.createdAt,files,pendingItems,maintenance:r.maintenance};
-    }));return {available:true,maintenanceAvailable:Boolean(this.config.maintenanceUser&&this.config.maintenanceAuthorizedKeys),devices};
+    }));return {available:true,transport:this.config.transport||'https',maintenanceAvailable:Boolean(this.config.maintenanceUser&&this.config.maintenanceAuthorizedKeys),devices};
   }
   async handle(req,res,path,{client=false}={}){
     if(client&&path!=='/api/computer-link/claim')return false;
@@ -123,7 +132,7 @@ export class ComputerLink {
       }
       if(path==='/api/computer-link'&&req.method==='GET')send(res,await this.status());
       else if(path==='/api/computer-link'&&req.method==='POST'){const b=await input(req);send(res,await this.serial(()=>this.create(b)));}
-      else if(/^\/api\/computer-link\/[a-f0-9]{24}\/download$/.test(path)&&req.method==='POST'){const b=await input(req);if(typeof b.token!=='string')throw fail('下载令牌无效',401);await this.download(path.split('/')[3],b.token,res);}
+      else if(/^\/api\/computer-link\/[a-f0-9]{24}\/download$/.test(path)&&req.method==='POST'){const b=await input(req);if(typeof b.token!=='string')throw fail('下载令牌无效',401);await this.download(path.split('/')[3],b.token,res,{origin:this.config?.transport==='ssh'?'http://'+req.headers.host:this.config?.publicOrigin});}
       else if(/^\/api\/computer-link\/[a-f0-9]{24}$/.test(path)&&req.method==='DELETE')send(res,await this.serial(()=>this.revoke(path.split('/').at(-1))));
       else send(res,{error:'接口不存在'},404);
     }catch(e){if(res.headersSent)res.destroy();else send(res,{error:e.status?e.message:'连接服务暂不可用，请稍后重试'},e.status||503);}return true;

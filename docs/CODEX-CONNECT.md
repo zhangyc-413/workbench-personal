@@ -25,3 +25,9 @@ After reviewing the materials and confirming the user's folder/permission choice
 Keep progress visible. If a download or connection fails, explain the actual error and resume the same enrollment where possible. Do not keep generating new enrollments. Never claim completion solely because a process exited: check the helper's reported connection and the webpage's sync status. Only create a disposable synchronization test file if the user permits it, and remove it afterwards.
 
 When maintenance was selected, `~/Workbench Development/<connection-id>` contains the separate source snapshot, `LOCAL-SETUP.md` and a private deployment descriptor. Open that directory in Codex for future feature changes; read `AGENTS.md` and `LOCAL-SETUP.md` first. Never show or commit private connection descriptors. Do not publish unrelated source changes as part of this connection task. When reporting back, name the selected folder and whether synchronization is connected, pending or failed.
+
+## SSH-only trial
+
+A ticket with `transport: "ssh"` uses HTTP only on the exact `127.0.0.1` origin, carried by the user's existing SSH tunnel. Keep that initial tunnel running during enrollment. Never replace the origin with a public IP or disable TLS checks. If it is unreachable on this Mac, first ask the owner for their server SSH connection and establish the loopback Home forward; do not copy another person's key or provider credentials.
+
+After enrollment the helper creates its own restricted SSH key and forwards both synchronization and Home. It opens a new local website address; ask the user to bookmark it and enter their existing Workbench access token. Their initial administrator tunnel can then be closed. The helper has no server shell access unless maintenance was explicitly selected.

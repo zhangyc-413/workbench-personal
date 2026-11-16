@@ -59,3 +59,9 @@ Use sshd's `AuthorizedKeysCommand /usr/bin/cat /xxxxx/computer-link/sync_authori
 The only public unauthenticated gateway exception is the exact **POST /api/computer-link/claim** path, proxied directly to Home. It requires the unguessable, expiring enrollment bearer and accepts only a validated SSH public key and Syncthing identity. All listing, creation, downloads and revocation retain the existing browser/API authentication. Do not expose the whole `/api` prefix. For Caddy, place an exact method/path matcher and `handle` before the normal authenticated gateway fallback. No new firewall port is needed beyond the server's existing SSH and HTTPS ports.
 
 State lives in `DATA_DIR/computer-link/devices.json`, mode 0600, with hashed enrollment tokens. Enrollment is serialized and retryable for the identical device; changed identities and expired/revoked tokens fail closed. This reuses Home and the existing Syncthing service, with no new scheduler or cloud account login.
+
+### SSH-only trial without a domain
+
+Set `transport` to `ssh`, `publicOrigin` to the owner's existing `http://127.0.0.1:14318` Home forward, and `homePort` to the server's Home listener port. Home must bind to `127.0.0.1`; other HTTP origins and public listeners are rejected. Add that Home port to the forwarding-only account's `PermitOpen`, alongside the synchronization port. The same expiring enrollment authorization applies. No public port is needed.
+
+Download and install on the computer with that initial SSH forward running. Once paired, the helper owns a separate loopback Home forward and opens its new local address. The user bookmarks that address and enters their existing Home token there; the token is never included in the package. The initial administrator connection may then be closed.

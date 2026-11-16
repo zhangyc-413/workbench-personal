@@ -16,10 +16,10 @@ export class FolderAccess {
  run(envelope,fn){return this.context.run(envelope||null,fn);}
  /** Prepare an idempotent receipt without changing global roots or writing the chosen directory. */
  async prepare({operationId,scope,path,bindings=[]}){
-  if(!this.local)throw Error('Local folder selection is not available on this device');
   if(!/^[\w-]{8,100}$/.test(operationId||'')||! /^(project|native):[\w:-]{1,150}$/.test(scope||''))throw Error('Invalid folder binding identity');
   if(typeof path!=='string'||!isAbsolute(path)||path.includes('\0'))throw Error('Select an absolute folder path');
   const root=await realpath(path),info=await stat(root);
+  if(!this.local&&!this.roots.some(allowed=>allowed!==root&&inside(allowed,root)))throw Error('Folder is outside the server workspace');
   if(!info.isDirectory()||dirname(root)===root)throw Error('Choose a project folder, not a filesystem root');
   await access(root,constants.R_OK|constants.W_OK|constants.X_OK);
   const id=`${this.nodeId}:${operationId}`,prior=this.db.get('folderGrantReceipts',id);

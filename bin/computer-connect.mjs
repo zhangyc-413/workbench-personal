@@ -13,6 +13,17 @@ const sha=b=>createHash('sha256').update(b).digest('hex');
 const run=async(cmd,args,options={})=>(await exec(cmd,args,{timeout:30000,maxBuffer:1024*1024,...options})).stdout.trim();
 async function save(path,value){await writeFile(path,JSON.stringify(value,null,2),{mode:0o600});}
 export async function freePort(){const s=createServer();await new Promise((r,j)=>{s.once('error',j);s.listen(0,'127.0.0.1',r);});const port=s.address().port;await new Promise(r=>s.close(r));return port;}
+export function validateConnectionTicket(ticket){
+  const u=new URL(ticket.origin),ssh=ticket.transport==='ssh';
+  if(ticket.transport&&!['ssh','https'].includes(ticket.transport))throw Error('无效的连接方式');
+  if(!/^[a-f0-9]{24}$/.test(ticket.id)||u.origin!==ticket.origin||
+    (ssh?u.protocol!=='http:'||u.hostname!=='127.0.0.1'||!u.port||!Number.isInteger(ticket.homePort)||ticket.homePort<1||ticket.homePort>65535:u.protocol!=='https:'))throw Error('无效的连接包');
+}
+export function tunnelArguments(c){
+  const args=['-F',join(c.dir,'ssh_config'),'-NT','-o','ExitOnForwardFailure=yes','-L',`127.0.0.1:${c.tunnelPort}:127.0.0.1:${c.pair.syncPort}`];
+  if(c.webPort&&c.pair.homePort)args.push('-L',`127.0.0.1:${c.webPort}:127.0.0.1:${c.pair.homePort}`);
+  return [...args,'workbench-sync'];
+}
 export async function syncApi(c,path,method='GET',body){const r=await fetch(`http://127.0.0.1:${c.guiPort}/rest/${path}`,{method,headers:{'X-API-Key':c.apiKey,'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(5000),redirect:'error'});if(!r.ok)throw Error('本机同步服务尚未就绪');const t=await r.text();return t?JSON.parse(t):{};}
 async function waitSync(c){for(let n=0;n<60;n++){try{return await syncApi(c,'system/status');}catch{await sleep(500);}}throw Error('本机同步服务启动超时');}
 async function key(dir,name){const path=join(dir,name);try{await stat(path);}catch(e){if(e.code!=='ENOENT')throw e;await run('/usr/bin/ssh-keygen',['-q','-t','ed25519','-N','','-f',path]);}return (await run('/usr/bin/ssh-keygen',['-y','-f',path])).split(/\s+/).slice(0,2).join(' ');}
@@ -51,19 +62,19 @@ export async function sshConfig(c,pair){
 export async function supervise(c){
   let closing=false;const children=[];
   const finish=async()=>{if(closing)return;closing=true;await Promise.all(children.map(stop));process.exit(1);};
-  const sync=startSync(c),ssh=spawn('/usr/bin/ssh',['-F',join(c.dir,'ssh_config'),'-NT','-o','ExitOnForwardFailure=yes','-L',`127.0.0.1:${c.tunnelPort}:127.0.0.1:${c.pair.syncPort}`,'workbench-sync'],{stdio:'ignore'});children.push(sync,ssh);
+  const sync=startSync(c),ssh=spawn('/usr/bin/ssh',tunnelArguments(c),{stdio:'ignore'});children.push(sync,ssh);
   for(const child of children){child.once('exit',()=>void finish());child.once('error',()=>void finish());}
   for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>void finish());
 }
 export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascript',['-e','activate','-e','POSIX path of (choose folder with prompt "选择要与 Workbench 同步的专用文件夹")'],{timeout:300000}),openWebsite=url=>run('/usr/bin/open',[url])}={}){
   if(process.platform!=='darwin')throw Error('此安装助手仅支持 Mac');
   const ticket=JSON.parse(await readFile(ticketPath,'utf8'));
-  if(!/^[a-f0-9]{24}$/.test(ticket.id)||new URL(ticket.origin).protocol!=='https:')throw Error('无效的连接包');
+  validateConnectionTicket(ticket);
   const base=join(homedir(),'Library','Application Support','Workbench Connect'),dir=join(base,ticket.id);
   await mkdir(dir,{recursive:true,mode:0o700});
   const label='net.workbench.connect.'+ticket.id,plist=join(homedir(),'Library','LaunchAgents',label+'.plist');
   let c;try{c=JSON.parse(await readFile(join(dir,'connection.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
-  if(c?.installed){console.log('这台电脑已经配置好。正在检查连接…');await run('/bin/launchctl',['kickstart',`gui/${process.getuid()}/${label}`]);await openWebsite(ticket.origin);return;}
+  if(c?.installed){console.log('这台电脑已经配置好。正在检查连接…');await run('/bin/launchctl',['kickstart',`gui/${process.getuid()}/${label}`]);await openWebsite(c.origin);return;}
   if(ticket.expiresAt<Date.now())throw Error('下载包已过期，请回网页重新下载');
   const lock=join(dir,'install.lock');await mkdir(lock).catch(()=>{throw Error('安装正在进行。如上次异常退出，请关闭其终端后删除此目录中的 install.lock 再重试：'+dir);});
   let child;
@@ -91,6 +102,12 @@ export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascri
     child=startSync(c);child.on('error',()=>{});const status=await waitSync(c);
     const response=await fetch(ticket.origin+'/api/computer-link/claim',{method:'POST',headers:{Authorization:'Bearer '+ticket.token,'Content-Type':'application/json'},body:JSON.stringify({publicKey,maintenanceKey,peerId:status.myID,name:hostname()}),signal:AbortSignal.timeout(60000),redirect:'error'});
     const pair=await response.json();if(!response.ok)throw Error(pair.error||'连接失败');
+    if(ticket.transport==='ssh'){
+      if(pair.homePort!==ticket.homePort)throw Error('服务器网页端口与连接资料不一致');
+      c.webPort ||= await freePort();
+      if([c.guiPort,c.listenPort,c.tunnelPort].includes(c.webPort))throw Error('网页端口冲突，请重试');
+      c.origin=`http://127.0.0.1:${c.webPort}`;
+    }
     c.pair=pair;await sshConfig(c,pair);await configurePair(c,pair);
     await stop(child);child=null;
     await copyFile(self,join(dir,'connect.mjs'));
@@ -101,7 +118,7 @@ export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascri
       // Never overwrite local edits on an interrupted installation retry.
       await cp(join(dirname(resolve(ticketPath)),'source'),dev,{recursive:true,force:false,errorOnExist:false});
       const config=join(dir,'ssh_config');
-      await save(join(dev,'.workbench-connection.json'),{sshConfig:config,sshAlias:'workbench-dev',origin:ticket.origin,deployment:pair.deployment});
+      await save(join(dev,'.workbench-connection.json'),{sshConfig:config,sshAlias:'workbench-dev',origin:c.origin,deployment:pair.deployment});
       await writeFile(join(dev,'LOCAL-SETUP.md'),`# 本机工作台开发\n\n这是此服务器当前源码的独立副本。可在 Codex 或其他本地 Agent 中打开本目录。\n\n- 本机 Node：\`${c.node}\`。将其 bin 目录加入 PATH 后执行 npm ci、npm run check。\n- 维护连接：ssh -F '${config.replaceAll("'","'\\''")}' workbench-dev\n- 发布：node bin/deploy-personal.mjs（先检查差异、测试；脚本会检查服务器空闲、备份、发布并验证，忙时拒绝）。\n- 配置文件 .workbench-connection.json 仅留本机，勿提交 Git。\n- 服务器账号凭证和聊天数据库不在此源码目录中。只改源码，不删除状态目录。\n- 首次可 git init -b personal，创建自己的版本记录；不要把本机连接资料提交到公开仓库。\n- 修改本地源码不会自动更新线上；确认测试通过后再发布。\n`,{mode:0o600});
       await writeFile(join(dev,'.gitignore'),'node_modules/\n.data/\n.local/\n.workbench/\n.worktrees/\n.workbench-connection.json\n.workbench-baseline.json\nLOCAL-SETUP.md\nsoftware-build.json\n.env\n.env.*\n*.pem\n*.key\n.DS_Store\n',{mode:0o600});
       c.development=dev;console.log('本地开发目录：'+dev);
@@ -113,11 +130,12 @@ export async function install(ticketPath,{chooseFolder=()=>run('/usr/bin/osascri
     await run('/bin/launchctl',['bootstrap',`gui/${process.getuid()}`,plist]);
     c.installed=true;await save(join(dir,'connection.json'),c);
     await writeFile(join(dir,'停止同步.command'),`#!/bin/bash\n/bin/launchctl bootout gui/$(id -u) '${plist.replaceAll("'","'\\''")}'\nrm -f '${plist.replaceAll("'","'\\''")}'\necho '已停止本机自动同步；文件保留。如需撤销服务器访问，请在网页解除连接。'\n`,{mode:0o700});
-    await save(ticketPath,{id:ticket.id,origin:ticket.origin}); // Retain the launch identity, never the consumed enrollment secret.
+    await save(ticketPath,{id:ticket.id,origin:c.origin,transport:ticket.transport,homePort:ticket.homePort}); // Retain launch identity, never the consumed secret.
     console.log('已配置开机登录后自动连接。正在确认同步通道…');
     try{await waitSync(c);let connected=false;for(let i=0;i<30;i++){if((await syncApi(c,'system/connections')).connections?.[pair.serverId]?.connected){connected=true;break;}await sleep(1000);}console.log(connected?'连接成功，文件正在双向同步。':'后台助手已安装，服务器通道暂未接通，将自动重试。');}catch{console.log('后台助手已安装，请在网页刷新查看连接状态。');}
     console.log('本机文件夹：'+c.folder+'\n服务器文件夹：'+pair.folder+'\n停止同步：'+join(dir,'停止同步.command'));
-    await openWebsite(ticket.origin);
+    if(ticket.transport==='ssh')console.log('新的工作台入口：'+c.origin+'（请收藏；首次需输入工作台访问令牌）');
+    await openWebsite(c.origin);
   }finally{await stop(child);await rm(lock,{recursive:true,force:true});}
 }
 if(process.argv[1]&&resolve(process.argv[1])===self){
