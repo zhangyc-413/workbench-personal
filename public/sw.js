@@ -1,4 +1,4 @@
-const CACHE = 'agent-workbench-static-v227-ssh-connect-folders';
+const CACHE = 'agent-workbench-static-v228-connect-tabs';
 const STATIC = [
   '/computer-link.js',
   '/native-side-ask.js', '/group-side-ask.js', '/source-sync-audit.js',
