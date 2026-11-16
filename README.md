@@ -21,7 +21,7 @@ A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-
 - “Project files” instead of “0 code repositories” when a project has no registered Git repositories.
 - Indexed native-session ownership checks keep scheduling responsive as task history grows.
 - After a Home restart, a verified idle native session becomes usable again when its Worker reconnects. Explicitly closing sessions remain blocked until their processes exit.
-- Returning to a previously viewed group chat or native session shows a bounded, read-only text copy immediately while live data reconnects. Copies stay in the current browser tab; first visits still need the server.
+- Refreshing or returning to the workbench uses the normal loading state and opens the regular conversation directly, without a separate saved-message preview page.
 - A stalled or failed page startup offers interface recovery; `/recover` refreshes only Workbench static files while preserving sign-in, drafts and conversations.
 - Native chats load compact session state instead of the group task archive. Temporary read failures retain the last complete state and resume incremental updates; background refreshes show no moving progress bar.
 

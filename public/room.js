@@ -1,4 +1,3 @@
-import {saveReadingPreview,readingPreviewReady,groupReadingKey} from './reading-preview.js';
 import {copyText,pendingAction,bindCopyFeedback,bindPendingAction} from './role-icons.js';
 import {renderRetiredCommandWarning} from './retired-commands.js';
 import {sideButton} from './side-preview.js';
@@ -1260,16 +1259,9 @@ export function createRoomUI({ api, documentPreview, refreshState, openTask, sto
   }
   // A clicked card may change itself (a busy button, a cleared icon after a failed stop): it is drawn afresh next time.
   feed.addEventListener('click',event=>{const node=event.target.closest?.('[data-entry-key]');if(node){drawnMarkup.delete(node);drawnSignature.delete(node);}},true);
-  let previewHistory=null,previewScope=null;
   function renderMessages() {
     cliRecoveryUI.refresh();
     const history = histories.get(scopeId), stored = history?.messages || [];
-    if(history&&(history!==previewHistory||previewScope!==scopeId)){
-      previewHistory=history;previewScope=scopeId;
-      const key=groupReadingKey(projectId,conversationId),chat=data.conversations?.find(c=>c.id===conversationId);
-      saveReadingPreview({mode:'groups',key,title:chat?.title||chat?.name||data.projects?.find(p=>p.id===projectId)?.name,rows:stored.filter(m=>!inQueue(m)).slice(-40).map(m=>({speaker:m.senderName,role:m.sender==='human'?'user':'assistant',text:m.text,at:m.createdAt}))});
-      readingPreviewReady('groups',key);
-    }
     const echo = pendingEcho(scopeId, stored), messages = (echo ? [...stored, echo] : stored).filter(m => !inQueue(m)).map(startedAt);
     const scrollTop = scroller.scrollTop;
     const atBottom = scroller.scrollHeight - scroller.clientHeight - scrollTop < 120;

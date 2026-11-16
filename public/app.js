@@ -1,4 +1,4 @@
-import {showLastReadingPreview,showReadingPreview,hideReadingPreview,groupReadingKey,clearReadingPreviews,allowReadingPreviews} from './reading-preview.js';
+import {clearReadingPreviews} from './reading-preview.js';
 import {copyText,pendingAction,bindPendingAction,bindCopyFeedback} from './role-icons.js';
 import {createDocumentPreview} from './side-preview.js';
 import {deliveryRepositorySummary} from './delivery-summary.js';
@@ -287,7 +287,7 @@ function createMobileDrawers() {
 const drawers = createMobileDrawers();
 const inspector=createWorkspaceInspector({api,documentPreview,refreshState,onError:setError,getConversationId:()=>app.selectedConversationId||app.selectedProjectId,onSideAskOpen:()=>{setInspectorMode('shown');mobilePanel('roles');},getProject:getCurrentProject,getData:()=>app.data,openDevices:()=>openSettings('devices'),openProjectFolder});
 const conversationTaskUI=createConversationTaskUI({api,getScope:()=>({projectId:app.selectedProjectId,conversationId:app.selectedConversationId||app.selectedProjectId}),getRoles:()=>[...app.data.roles,...app.data.supervisorRoles],openMessage:async(scope,id)=>{mobilePanel('chat');await room.jumpMessage(scope,id);}});
-const nativeSessionUI=createNativeSessionUI({api,documentPreview,getData:()=>app.data,onModeChange:()=>{hideReadingPreview();app.view='workspace';render();void refreshState({quiet:true});},onPreview:()=>mobilePanel('chat'),onStateRefresh:()=>refreshState({quiet:true})});
+const nativeSessionUI=createNativeSessionUI({api,documentPreview,getData:()=>app.data,onModeChange:()=>{app.view='workspace';render();void refreshState({quiet:true});},onPreview:()=>mobilePanel('chat'),onStateRefresh:()=>refreshState({quiet:true})});
 sessionProjectId=()=>nativeSessionUI.currentProjectId();
 initWorkspaceColumns();
 const mobilePanel = drawers.set;
@@ -321,7 +321,6 @@ viewportHeight();
 
 const remoteAccessUI=createRemoteAccessSettingsUI({root:document.querySelector('#remote-access-settings'),api});
 function openSettings(value = 'general') {
-  hideReadingPreview();
   let tab = normalizeSettingsTab(value);
   if (tab === 'project' && !projectsUI.prepareSettings()) tab = 'general';
   dom.projectFormPanel.hidden = true;
@@ -652,7 +651,6 @@ async function refreshState({ quiet = false } = {}) {
       hostingAccounts:data.hostingAccounts||[],devices:data.devices||[],repositoryOperations:data.repositoryOperations||[],
       version: data.version || '', homePlatform: data.homePlatform || ''
     };
-    allowReadingPreviews();
     reconcileSelection();
     setError('');
     render();
@@ -712,7 +710,6 @@ function render() {
   setupUI.refresh();
   platformUI.refresh(); spacesUI.refresh(); memoryUI.refresh();
   if(!nativeSessionUI.active()){
-    showReadingPreview('groups',app.selectedProjectId?groupReadingKey(app.selectedProjectId,app.selectedConversationId):null);
     void room.refresh(app.data, app.selectedProjectId,app.selectedConversationId);
   }
   nativeSessionUI.sync();
@@ -2449,7 +2446,7 @@ window.addEventListener('focus', refreshAfterActivation);
 window.addEventListener('online', refreshAfterActivation);
 window.addEventListener('pageshow', refreshAfterActivation);
 document.addEventListener('visibilitychange', refreshAfterActivation);
-showLastReadingPreview();
+clearReadingPreviews();
 connectUpdates();
 refreshState().finally(() => void syncLanguage());
 startElapsedTicker();
