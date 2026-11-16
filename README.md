@@ -10,7 +10,7 @@ A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-
 
 ### What this fork adds
 
-- A Mac **Connect my computer** flow: download lightweight connection materials and open a prefilled task in the local Codex app. The user sends it; Codex reviews the materials, prepares verified components and configures dedicated SSH and Syncthing with a chosen folder. Optional local maintenance includes source and a guarded deployment helper. A separate **下载文件** tab provides the complete standalone helper. [Setup and boundaries](docs/COMPUTER-CONNECT.md).
+- A Mac **Connect my computer** flow: download lightweight connection materials and open a prefilled task in the local Codex app. The user sends it; Codex reviews the materials, prepares verified components and configures dedicated SSH and Syncthing with a chosen folder. Optional local maintenance includes source and a guarded deployment helper. One button guides the two clicks: **下载连接资料**, then **打开 Codex 继续**. [Setup and boundaries](docs/COMPUTER-CONNECT.md).
 
 - Neutral charcoal dark mode that follows the device's light/dark preference.
 - Mobile keyboard layout adjustments, including iPhone viewport panning.

@@ -1,4 +1,4 @@
-const CACHE = 'agent-workbench-static-v228-connect-tabs';
+const CACHE = 'agent-workbench-static-v229-connect-single';
 const STATIC = [
   '/computer-link.js',
   '/native-side-ask.js', '/group-side-ask.js', '/source-sync-audit.js',

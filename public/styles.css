@@ -4465,29 +4465,21 @@ dialog.media-lightbox .media-nav-next { right: 10px; }
 .computer-link-entry{margin:8px 12px;flex-shrink:0;}
 body[data-project-sidebar="collapsed"] .computer-link-entry{display:none;}
 .computer-link-dialog{width:min(540px,calc(100vw - 32px));max-height:85dvh;overflow:auto;}
-.computer-link-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;background:var(--surface-chat);border:1px solid var(--line);border-radius:10px;}
-.computer-link-tabs [role=tab]{min-width:0;padding:10px 8px;background:transparent;color:var(--muted);border:1px solid transparent;border-radius:7px;font-size:14px;}
-.computer-link-tabs [aria-selected=true]{background:var(--theme-panel,#fff);color:var(--ink);border-color:var(--line);}
 .computer-link-dialog [hidden]{display:none!important;}
-.computer-link-dialog [role=tabpanel]>p{font-size:14px;line-height:1.6;margin:20px 0 14px;color:var(--muted);}
+.computer-link-dialog .computer-link-step{font-size:14px;line-height:1.6;margin:20px 0 14px;color:var(--muted);}
 .computer-link-actions{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 10px;}
 .computer-link-dialog .computer-link-actions>.primary{width:100%;padding:12px 18px;}
-.computer-link-secondary{display:flex;flex-wrap:wrap;gap:8px;}
-.computer-link-dialog [role=tabpanel]>.computer-link-caption{font-size:12px;text-align:center;margin:10px 0 0;}
 .computer-link-dialog progress{width:100%;margin:12px 0;}
 .computer-link-dialog .form-feedback{font-size:13px;line-height:1.6;overflow-wrap:anywhere;}
 .computer-link-dialog .form-feedback:empty{display:none;}
 .computer-link-options{border-top:1px solid var(--line);margin-top:20px;padding-top:16px;}
-.computer-link-option{display:flex;align-items:center;gap:10px;font-size:14px;}
+.computer-link-option{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:14px;}
 .computer-link-option input{width:auto;margin:0;flex-shrink:0;}
 .computer-link-options .workspace-note{font-size:12px;margin:6px 0 0 26px;line-height:1.5;}
-.computer-link-dialog .computer-link-sync-note{margin:16px 0 0;font-size:12px;color:var(--muted);line-height:1.6;}
 .computer-link-dialog details{margin-top:14px;}
 .computer-link-dialog summary{cursor:pointer;font-size:13px;color:var(--muted);}
-.computer-link-help p{font-size:13px;line-height:1.6;color:var(--muted);}
 .computer-link-devices{display:grid;gap:12px;margin-top:14px;}
 .computer-link-device{padding:14px;border:1px solid var(--line);border-radius:10px;display:grid;gap:8px;}
 .computer-link-device p{margin:0;font-size:13px;}
 .computer-link-device code{white-space:normal;overflow-wrap:anywhere;font-size:12px;}
 .computer-link-device button{justify-self:start;}
-.computer-link-dialog textarea{width:100%;min-height:160px;margin-top:12px;font-size:13px;}
