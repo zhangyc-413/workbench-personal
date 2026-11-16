@@ -8,7 +8,7 @@ A community fork of [robinli1228-ctrl/workbench](https://github.com/robinli1228-
 
 ### What this fork adds
 
-- A Mac **Connect my computer** flow: follow a short step-by-step dialog, download a complete Mac package that selects its chip automatically, choose a folder, and automatically configure dedicated SSH and Syncthing. Optional local maintenance includes source and a guarded deployment helper. [Setup and boundaries](docs/COMPUTER-CONNECT.md).
+- A Mac **Connect my computer** flow: download lightweight connection materials and open a prefilled task in the local Codex app. The user sends it; Codex reviews the materials, prepares verified components and configures dedicated SSH and Syncthing with a chosen folder. Optional local maintenance includes source and a guarded deployment helper. A complete standalone helper remains available. [Setup and boundaries](docs/COMPUTER-CONNECT.md).
 
 - Neutral charcoal dark mode that follows the device's light/dark preference.
 - Mobile keyboard layout adjustments, including iPhone viewport panning.

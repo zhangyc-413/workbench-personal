@@ -42,25 +42,26 @@ export class ComputerLink {
       await atomic(this.config.maintenanceAuthorizedKeys,dev.join('\n')+'\n');
     }
   }
-  async create({maintenance=false,arch='universal'}={}){
+  async create({maintenance=false,arch='universal',setup='helper'}={}){
     if(!this.config)throw fail('管理员尚未配置连接助手',503);
     if(!['arm64','x64','universal'].includes(arch))throw fail('不支持的连接包类型');
-    await computerLinkAssets(this.config.runtimeCache,arch).catch(()=>{throw fail('服务器尚未备好完整连接包，请联系管理员准备组件',503);});
+    if(!['helper','codex'].includes(setup))throw fail('不支持的连接方式');
+    if(setup==='helper')await computerLinkAssets(this.config.runtimeCache,arch).catch(()=>{throw fail('服务器尚未备好完整连接包，请联系管理员准备组件',503);});
     if(this.rows.filter(r=>r.status==='pending'&&r.expiresAt>this.now()).length>=5)throw fail('已有多个待连接下载包，请先取消不用的连接');
     if(this.rows.filter(r=>r.status!=='revoked'&&r.status!=='pending').length>=32)throw fail('连接数量已达到上限');
     const id=randomBytes(12).toString('hex'),token=randomBytes(32).toString('base64url');
     if(maintenance&&(!this.config.maintenanceAuthorizedKeys||!this.config.maintenanceUser))throw fail('本机维护尚未配置');
-    const row={id,tokenHash:hash(token),createdAt:this.now(),expiresAt:this.now()+30*60*1000,status:'pending',folderId:'wb-link-'+id,maintenance:maintenance===true,arch};
+    const row={id,tokenHash:hash(token),createdAt:this.now(),expiresAt:this.now()+30*60*1000,status:'pending',folderId:'wb-link-'+id,maintenance:maintenance===true,arch,setup};
     this.rows=this.rows.filter(r=>r.status!=='pending'||r.expiresAt>this.now());this.rows.push(row);await this.save();
-    return {id,expiresAt:row.expiresAt,downloadToken:token,arch};
+    return {id,expiresAt:row.expiresAt,downloadToken:token,arch,setup};
   }
   async download(id,token,res){
     const r=this.rows.find(row=>row.id===id&&row.tokenHash===hash(token));
     if(!r||r.status!=='pending'||r.expiresAt<this.now())throw fail('连接包已失效，请重新下载',401);
-    const runtimes=await computerLinkAssets(this.config.runtimeCache,r.arch);
+    const runtimes=r.setup==='codex'?[]:await computerLinkAssets(this.config.runtimeCache,r.arch);
     // Revocation may run during async asset validation. Recheck before releasing the package.
     if(r.status!=='pending'||r.expiresAt<this.now())throw fail('连接包已失效，请重新下载',401);
-    await streamComputerLinkBundle({id:r.id,token,origin:this.config.publicOrigin,expiresAt:r.expiresAt,ignores,maintenance:r.maintenance,arch:r.arch},runtimes,res);
+    await streamComputerLinkBundle({id:r.id,token,origin:this.config.publicOrigin,expiresAt:r.expiresAt,ignores,maintenance:r.maintenance,arch:r.arch,setup:r.setup||'helper'},runtimes,res);
   }
   async claim(token,b){
     const r=this.rows.find(r=>r.tokenHash===hash(token));

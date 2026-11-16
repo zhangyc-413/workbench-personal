@@ -79,7 +79,12 @@ read -r -p "按回车关闭…"
 export async function computerLinkFiles(ticket){
   const root=fileURLToPath(new URL('../',import.meta.url)),prefix='Workbench Connect/';
   const files=[{name:prefix+'连接我的电脑.command',data:bootstrap(ticket.arch||'arm64'),executable:true},{name:prefix+'connect.mjs',data:await readFile(new URL('../bin/computer-connect.mjs',import.meta.url))},{name:prefix+'ticket.json',data:JSON.stringify({...ticket,assets})},
-    {name:prefix+'使用说明.txt',data:'这是完整连接包，包含所需组件，打开后不再下载 Node 或 Syncthing。解压后双击「连接我的电脑.command」，按提示选择专用同步文件夹。首次打开如遇系统确认，请在 Finder 中右键选择「打开」。连接包 30 分钟有效，仅用于本机，请勿转发。\n同步为双向：修改和删除会传到另一端；关机期间暂停，开机并登录后继续。冲突保留副本，远端修改保留 20 版。常见密钥/账号目录不参与同步，但请自行检查共享文件内容。\n启用本机维护时会另外生成工作台源码目录及维护 SSH 密钥，源码不与项目文件混在一起，不自动发布改动。\n'}];
+    {name:prefix+'使用说明.txt',data:'这是完整连接包，包含所需组件，打开后不再下载 Node 或 Syncthing。解压后双击「连接我的电脑.command」，按提示选择专用同步文件夹。此助手尚未经 Apple 公证，macOS 可能阻止打开；可返回网页选择「用 Codex 连接」，由本机 Codex 检查资料后配置。连接包 30 分钟有效，仅用于本机，请勿转发。\n同步为双向：修改和删除会传到另一端；关机期间暂停，开机并登录后继续。冲突保留副本，远端修改保留 20 版。常见密钥/账号目录不参与同步，但请自行检查共享文件内容。\n启用本机维护时会另外生成工作台源码目录及维护 SSH 密钥，源码不与项目文件混在一起，不自动发布改动。\n'}];
+  if(ticket.setup==='codex'){
+    files.splice(0,1);files.pop();
+    files.push({name:prefix+'runtime-assets.json',data:JSON.stringify(Object.fromEntries(['arm64','x64'].map(arch=>[arch,runtimeFiles(arch)])),null,2)},
+      {name:prefix+'START-HERE.md',data:await readFile(new URL('../docs/CODEX-CONNECT.md',import.meta.url))});
+  }
   if(ticket.maintenance){
     // Only reviewed source areas; never walk state, auth, .git, home directories or arbitrary configured paths.
     const walk=async rel=>{for(const item of await readdir(join(root,rel),{withFileTypes:true})){if(item.name.startsWith('.')||item.name==='node_modules')continue;const path=rel+'/'+item.name;if(item.isDirectory())await walk(path);else if(item.isFile()&&/\.(mjs|js|html|css|json|png|svg|webmanifest|md|sh|template)$/.test(item.name))files.push({name:prefix+'source/'+path,data:await readFile(join(root,path)),executable:(await lstat(join(root,path))).mode&0o111});}};

@@ -4489,3 +4489,6 @@ body[data-project-sidebar="collapsed"] .computer-link-entry{display:none;}
 .computer-link-dialog .computer-link-help p{font-size:13px;color:var(--muted);}
 .computer-link-dialog .computer-link-sync-note{margin:14px 0 0;}
 .computer-link-next strong{overflow-wrap:anywhere;}
+
+.computer-link-dialog textarea{width:100%;min-height:160px;margin-top:12px;font-size:13px;}
+.computer-link-dialog .computer-link-help button{margin:6px 8px 0 0;}
